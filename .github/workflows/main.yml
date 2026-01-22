@@ -1,43 +1,52 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: 'Deploy to Weixin Cloud Run Static'
+
+# **What it does**: Build and deploy static site to Weixin Cloudrun.
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+  push:
+    branches:
+      - main # 监听的分支，可以根据自己项目情况修改
+  pull_request:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  # Needed for the 'trilom/file-changes-action' action
+  pull-requests: read
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+  deploy-to-static:
+    env: # Or as an environment variable
+      WXCLOUD_APPID: ${{ secrets.WXCLOUD_APPID }}
+      WXCLOUD_CLI_SECRET: ${{ secrets.WXCLOUD_CLI_SECRET }}
+      WXCLOUD_ENVID: ${{ secrets.WXCLOUD_ENVID }}
+    runs-on: ${{ fromJSON('["ubuntu-latest", "self-hosted"]')[github.repository == 'github/docs-internal'] }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/checkout@v3
+
+      - name: Setup node
+        uses: actions/setup-node@v3
         with:
-          # Upload entire repository
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          node-version: 16.13.x
+          cache: npm
+
+      - name: Install
+        run: npm ci
+      
+      - name: Install @wxcloud/cli
+        run: npm i -g @wxcloud/cli
+      
+      - name: Login @wxcloud/cli
+        run: wxcloud login --appId "$WXCLOUD_APPID" --privateKey "$WXCLOUD_CLI_SECRET"
+        
+      - name: Build Static Files
+        run: npm run build # 构建命令，可以根据项目实际情况修改
+      
+      - name: Deploy to Static Site
+        run: wxcloud storage:upload _site --envId="$WXCLOUD_ENVID" --remotePath=/ --mode=staticstorage # 上传生成的 _site 文件夹到静态托管的 / 目录下，可以根据项目实际情况修改
