@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="shortcut icon" href="https://tuapi.cccyn.cc/2023/02/27/63fc63411cdbf.jpg">
+    <title>FuncConfig.dat 在线加解密工具</title>
+    <link rel="stylesheet" href="css/encrypt-style.css">
+</head>
+<body>
+<div class="container">
+    <h2>FuncConfig.dat 在线加解密</h2>
+    <div class="form-group">
+        <label>选择文件：<span class="file-name" id="fileName"></span></label>
+        <input type="file" name="file" id="fileInput" required accept=".dat,.txt,.json,text/plain,application/octet-stream,application/json" style="display:none;">
+        <label for="fileInput" class="custom-file-label" id="fileLabel">点击选择 .dat、.txt 或 .json 文件</label>
+    </div>
+    <div class="form-group">
+        <label>预设模式：</label>
+        <div class="version-switch">
+            <input type="radio" id="ver75" name="preset_mode" value="7.5" checked>
+            <input type="radio" id="ver85" name="preset_mode" value="8.5">
+            <input type="radio" id="vercustom" name="preset_mode" value="custom">
+            <div class="switch-bg">
+                <div class="switch-slider"></div>
+                <label for="ver75" class="switch-btn">7.5</label>
+                <label for="ver85" class="switch-btn">8.5</label>
+                <label for="vercustom" class="switch-btn">自定义</label>
+            </div>
+        </div>
+    </div>
+    <div class="form-group" id="customInputs" style="display: none;">
+        <label>自定义 KEY：</label>
+        <input type="text" id="keyInput" name="key" maxlength="16" placeholder="请输入16字节KEY" autocomplete="off">
+    </div>
+    <div class="form-group" id="customInputs2" style="display: none;">
+        <label>自定义 IV：</label>
+        <input type="text" id="ivInput" name="iv" maxlength="16" placeholder="请输入16字节IV" autocomplete="off">
+    </div>
+    <div class="form-group" id="customInputs3" style="display: none;">
+        <label>数据填充：</label>
+        <input type="text" id="prefixInput" name="prefix" maxlength="16" placeholder="请输入16字节数据填充" autocomplete="off">
+    </div>
+    <div class="tip" style="margin-top: 0; margin-bottom: 16px;">
+        地图和加密文件可能不同版本，出错请切换！
+    </div>
+    <div class="form-group actions" id="actionButtons">
+        <button type="button" name="action" value="decrypt" id="btn-decrypt">解密文件</button>
+        <button type="button" name="action" value="encrypt" id="btn-encrypt">加密文件</button>
+    </div>
+    <div class="file-type-tip" id="fileTypeTip"></div>
+    <div class="tools-nav">
+        <button class="tools-nav-btn" id="toolsNavBtn">
+            <span class="tools-nav-icon">🛠️</span>
+            <span class="tools-nav-text">在线编辑工具</span>
+        </button>
+    </div>
+    <div class="qq-group">
+        <a href="https://qm.qq.com/q/KgtKdY0iCy" target="_blank" class="qq-group-link">
+            <span class="qq-icon">🐧</span> 交流QQ群：
+        </a>
+    </div>
+</div>
+<div id="popup-mask" style="display:none;"></div>
+<div id="popup-message" style="display:none;"></div>
+<div id="tools-modal" class="tools-modal">
+    <div class="tools-modal-content">
+        <div class="tools-modal-header">
+            <h3 class="tools-modal-title">在线编辑工具</h3>
+            <span class="tools-modal-close">&times;</span>
+        </div>
+        <div class="tools-modal-body">
+            <a href="FuncConfig/" class="tools-item">
+                <div class="tools-item-icon">⚙️</div>
+                <div class="tools-item-info">
+                    <div class="tools-item-title">FuncConfig 在线编辑</div>
+                    <div class="tools-item-desc">编辑配置文件，支持智能提示</div>
+                </div>
+            </a>
+            <a href="So/" class="tools-item">
+                <div class="tools-item-icon">📦</div>
+                <div class="tools-item-info">
+                    <div class="tools-item-title">SO 文件修改工具</div>
+                    <div class="tools-item-desc">修改SO文件中的PNG图片</div>
+                </div>
+            </a>
+            <a href="CarLogo/" class="tools-item">
+                <div class="tools-item-icon">🚗</div>
+                <div class="tools-item-info">
+                    <div class="tools-item-title">车标文件修改工具</div>
+                    <div class="tools-item-desc">修改车标图片，支持.dat/.bin文件</div>
+                </div>
+            </a>          
+            <a href="ICOS_5/" class="tools-item">
+                <div class="tools-item-icon">🖼️</div>
+                <div class="tools-item-info">
+                    <div class="tools-item-title">ICOS_5 贴片工具</div>
+                    <div class="tools-item-desc">替换ICOS贴片图片</div>
+                </div>
+            </a>
+            
+        </div>
+    </div>
+</div>
+<script src="js/crypto-js.min.js"></script>
+<script>
+// 预设密钥配置
+const PRESETS = {
+    '7.5': {
+        key: 'Jbga21autoj7ZAsF',
+        iv: 'Jbga21autoj7ZAsF',
+        prefix: '1234567812345678'
+    },
+    '8.5': {
+        key: 'Yqwr31autou4PbNM',
+        iv: '1234567812345678',
+        prefix: '9zxc46abc7o28l4t'
+    }
+};
+
+// 使用 CryptoJS 解密（支持 NoPadding）
+function decryptFile(fileData, key, iv) {
+    try {
+        const wordArray = CryptoJS.lib.WordArray.create(fileData);
+        const decrypted = CryptoJS.AES.decrypt(
+            { ciphertext: wordArray },
+            CryptoJS.enc.Utf8.parse(key),
+            { iv: CryptoJS.enc.Utf8.parse(iv), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.NoPadding }
+        );
+
+        // 转换为 Uint8Array
+        const u8 = new Uint8Array(decrypted.words.length * 4);
+        for (let i = 0; i < decrypted.words.length; i++) {
+            const word = decrypted.words[i];
+            u8[i * 4] = (word >> 24) & 0xff;
+            u8[i * 4 + 1] = (word >> 16) & 0xff;
+            u8[i * 4 + 2] = (word >> 8) & 0xff;
+            u8[i * 4 + 3] = word & 0xff;
+        }
+
+        // 检查解密后数据长度
+        if (u8.length < 20) {
+            throw new Error('解密失败：数据长度不足');
+        }
+
+        // 提取长度信息 (从第16字节开始，4字节小端序)
+        const plainLen = new DataView(u8.buffer, 16, 4).getUint32(0, true);
+
+        // 检查长度是否合理
+        if (plainLen <= 0 || plainLen > u8.length - 20) {
+            throw new Error('解密失败：数据长度异常');
+        }
+
+        // 提取实际数据 (从第20字节开始，长度为plainLen)
+        const realPlain = u8.slice(20, 20 + plainLen);
+
+        return realPlain;
+    } catch (error) {
+        throw new Error('解密失败：' + error.message);
+    }
+}
+
+// 使用 CryptoJS 加密（支持 NoPadding）
+function encryptFile(fileData, key, iv, prefix) {
+    try {
+        const plainLen = fileData.length;
+        const lenBytes = new ArrayBuffer(4);
+        new DataView(lenBytes).setUint32(0, plainLen, true);
+
+        // 拼接：前缀 + 长度(4字节) + 原始数据
+        const toEncrypt = new Uint8Array([
+            ...new TextEncoder().encode(prefix),
+            ...new Uint8Array(lenBytes),
+            ...fileData
+        ]);
+
+        // 零填充（与PHP版本一致）
+        const blockSize = 16;
+        const padLen = blockSize - (toEncrypt.length % blockSize);
+        const paddedData = new Uint8Array(toEncrypt.length + padLen);
+        paddedData.set(toEncrypt);
+        // 剩余字节填充0（不需要显式操作，新数组默认为0）
+
+        // 转换为 CryptoJS WordArray
+        const wordArray = CryptoJS.lib.WordArray.create(paddedData);
+        const encrypted = CryptoJS.AES.encrypt(
+            wordArray,
+            CryptoJS.enc.Utf8.parse(key),
+            { iv: CryptoJS.enc.Utf8.parse(iv), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.NoPadding }
+        );
+
+        // 转换为 Uint8Array
+        const encWords = encrypted.ciphertext.words;
+        const u8 = new Uint8Array(encWords.length * 4);
+        for (let i = 0; i < encWords.length; i++) {
+            const word = encWords[i];
+            u8[i * 4] = (word >> 24) & 0xff;
+            u8[i * 4 + 1] = (word >> 16) & 0xff;
+            u8[i * 4 + 2] = (word >> 8) & 0xff;
+            u8[i * 4 + 3] = word & 0xff;
+        }
+
+        return u8;
+    } catch (error) {
+        throw new Error('加密失败：' + error.message);
+    }
+}
+
+// 下载文件
+function downloadFile(data, filename) {
+    const blob = new Blob([data], { type: 'application/octet-stream' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }, 200);
+}
+
+// DOM元素
+const fileInput = document.getElementById('fileInput');
+const fileNameDiv = document.getElementById('fileName');
+const fileLabel = document.getElementById('fileLabel');
+const btnEncrypt = document.getElementById('btn-encrypt');
+const btnDecrypt = document.getElementById('btn-decrypt');
+const keyInput = document.getElementById('keyInput');
+const ivInput = document.getElementById('ivInput');
+const prefixInput = document.getElementById('prefixInput');
+const maxSize = 1024 * 1024;
+let selectedFile = null;
+
+// 预设模式切换处理
+document.querySelectorAll('input[name="preset_mode"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        const isCustom = this.value === 'custom';
+        const customInputs = [document.getElementById('customInputs'),
+                              document.getElementById('customInputs2'),
+                              document.getElementById('customInputs3')];
+
+        if (isCustom) {
+            customInputs.forEach(input => {
+                input.style.display = 'block';
+            });
+            keyInput.disabled = false;
+            ivInput.disabled = false;
+            prefixInput.disabled = false;
+        } else {
+            customInputs.forEach(input => {
+                input.style.display = 'none';
+            });
+            keyInput.disabled = true;
+            ivInput.disabled = true;
+            prefixInput.disabled = true;
+            keyInput.value = '';
+            ivInput.value = '';
+            prefixInput.value = '';
+        }
+    });
+});
+
+// 文件选择处理
+fileInput.addEventListener('change', function(e) {
+    const file = e.target.files.length ? e.target.files[0] : null;
+    selectedFile = file;
+    const fileName = file ? file.name : '';
+    fileNameDiv.textContent = fileName;
+
+    btnEncrypt.classList.remove('active', 'hide');
+    btnDecrypt.classList.remove('active', 'hide');
+
+    // 校验文件类型
+    if (file && !(/\.(dat|txt|json)$/i).test(fileName)) {
+        showPopup('请勿上传非 .dat、.txt 或 .json 文件！');
+        fileInput.value = '';
+        fileNameDiv.textContent = '';
+        selectedFile = null;
+        return;
+    }
+    // 校验文件大小
+    if (file && file.size > maxSize) {
+        showPopup('文件大小不能超过 1MB！');
+        fileInput.value = '';
+        fileNameDiv.textContent = '';
+        selectedFile = null;
+        return;
+    }
+
+    if (fileName.endsWith('.dat')) {
+        btnDecrypt.classList.add('active');
+        btnEncrypt.classList.add('hide');
+        btnDecrypt.textContent = '解密 dat 文件';
+        updateTip('上传 FuncConfig.dat,解密为 txt。');
+    } else if (fileName.endsWith('.txt')) {
+        btnEncrypt.classList.add('active');
+        btnDecrypt.classList.add('hide');
+        btnEncrypt.textContent = '加密 txt 文件';
+        updateTip('上传明文 txt,加密为 dat。');
+    } else if (fileName.endsWith('.json')) {
+        btnEncrypt.classList.remove('hide');
+        btnDecrypt.classList.remove('hide');
+        btnDecrypt.textContent = '解密 json 文件';
+        btnEncrypt.textContent = '加密 json 文件';
+        updateTip('检测中...');
+
+        // 异步检测JSON文件类型
+        checkJsonFileType(file).then(fileType => {
+            if (fileType === 'encrypted') {
+                btnDecrypt.classList.add('active');
+                btnEncrypt.classList.remove('active');
+                updateTip('检测到加密的 json 文件,建议选择解密。');
+            } else if (fileType === 'plain') {
+                btnEncrypt.classList.add('active');
+                btnDecrypt.classList.remove('active');
+                updateTip('检测到明文 json 文件,建议选择加密。');
+            } else {
+                updateTip('解密：上传 json 文件,下载明文 json。<br>加密：上传明文 json,下载加密 json。');
+            }
+        });
+    }
+});
+
+// 检查JSON文件类型
+async function checkJsonFileType(file) {
+    if (!file.name.endsWith('.json')) return null;
+
+    try {
+        const text = await file.text();
+        JSON.parse(text);
+        return 'plain';
+    } catch (e) {
+        return 'encrypted';
+    }
+}
+
+// 更新说明文案
+function updateTip(text) {
+    const tipElement = document.getElementById('fileTypeTip');
+    if (tipElement) {
+        tipElement.innerHTML = text;
+        tipElement.style.display = 'block';
+    }
+}
+
+// 加密按钮点击事件
+btnEncrypt.addEventListener('click', async function() {
+    if (!selectedFile) {
+        showPopup('请选择文件！');
+        return;
+    }
+
+    const presetMode = document.querySelector('input[name="preset_mode"]:checked').value;
+    let key, iv, prefix;
+
+    if (presetMode === 'custom') {
+        key = keyInput.value;
+        iv = ivInput.value;
+        prefix = prefixInput.value;
+
+        if (key.length !== 16 || iv.length !== 16 || prefix.length !== 16) {
+            showPopup('自定义模式下，KEY、IV和数据填充必须都是16字节！');
+            return;
+        }
+    } else {
+        const preset = PRESETS[presetMode];
+        key = preset.key;
+        iv = preset.iv;
+        prefix = preset.prefix;
+    }
+
+    const originalBtnText = btnEncrypt.textContent;
+
+    try {
+        btnEncrypt.disabled = true;
+        btnDecrypt.disabled = true;
+        btnEncrypt.textContent = '加密中...';
+
+        const fileData = new Uint8Array(await selectedFile.arrayBuffer());
+        const encryptedData = encryptFile(fileData, key, iv, prefix);
+
+        // 生成输出文件名
+        let resultFilename;
+        const fileExt = selectedFile.name.split('.').pop().toLowerCase();
+        const baseName = selectedFile.name.replace(/\.[^/.]+$/, '');
+
+        if (fileExt === 'json') {
+            let newBaseName = baseName;
+            if (baseName.includes('_decrypt')) {
+                newBaseName = baseName.replace('_decrypt', '');
+            }
+            resultFilename = newBaseName + '_encrypted.json';
+        } else {
+            resultFilename = 'FuncConfig_encrypted.dat';
+        }
+
+        downloadFile(encryptedData, resultFilename);
+        showPopup('加密成功！');
+    } catch (error) {
+        showPopup(error.message);
+    } finally {
+        btnEncrypt.disabled = false;
+        btnDecrypt.disabled = false;
+        btnEncrypt.textContent = originalBtnText;
+    }
+});
+
+// 解密按钮点击事件
+btnDecrypt.addEventListener('click', async function() {
+    if (!selectedFile) {
+        showPopup('请选择文件！');
+        return;
+    }
+
+    const presetMode = document.querySelector('input[name="preset_mode"]:checked').value;
+    let key, iv;
+
+    if (presetMode === 'custom') {
+        key = keyInput.value;
+        iv = ivInput.value;
+
+        if (key.length !== 16 || iv.length !== 16) {
+            showPopup('自定义模式下，KEY和IV必须都是16字节！');
+            return;
+        }
+    } else {
+        const preset = PRESETS[presetMode];
+        key = preset.key;
+        iv = preset.iv;
+    }
+
+    const originalBtnText = btnDecrypt.textContent;
+
+    try {
+        btnEncrypt.disabled = true;
+        btnDecrypt.disabled = true;
+        btnDecrypt.textContent = '解密中...';
+
+        const fileData = new Uint8Array(await selectedFile.arrayBuffer());
+        const decryptedData = decryptFile(fileData, key, iv);
+
+        // 生成输出文件名
+        let resultFilename;
+        const fileExt = selectedFile.name.split('.').pop().toLowerCase();
+        const baseName = selectedFile.name.replace(/\.[^/.]+$/, '');
+
+        if (fileExt === 'json') {
+            resultFilename = baseName + '_decrypt.json';
+        } else {
+            resultFilename = baseName + '.txt';
+        }
+
+        downloadFile(decryptedData, resultFilename);
+        showPopup('解密成功！');
+    } catch (error) {
+        showPopup(error.message);
+    } finally {
+        btnEncrypt.disabled = false;
+        btnDecrypt.disabled = false;
+        btnDecrypt.textContent = originalBtnText;
+    }
+});
+
+// 页面加载时初始化自定义输入框状态
+document.addEventListener('DOMContentLoaded', function() {
+    const customInputs = [document.getElementById('customInputs'),
+                          document.getElementById('customInputs2'),
+                          document.getElementById('customInputs3')];
+    customInputs.forEach(input => {
+        input.style.display = 'none';
+    });
+    keyInput.disabled = true;
+    ivInput.disabled = true;
+    prefixInput.disabled = true;
+});
+
+// 设备类型判断
+function isMobile() {
+    return /android|iphone|ipad|ipod|mobile|windows phone/i.test(navigator.userAgent);
+}
+if (fileLabel) {
+    fileLabel.textContent = isMobile() ? '点击选择 .dat、.txt 或 .json 文件' : '点击或拖动上传 .dat、.txt 或 .json 文件';
+}
+
+// 拖拽上传功能
+if (fileLabel) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.addEventListener(eventName, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        document.addEventListener(eventName, function() {
+            fileLabel.classList.add('dragover');
+            fileLabel.textContent = '松开鼠标以上传文件';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        document.addEventListener(eventName, function() {
+            fileLabel.classList.remove('dragover');
+            fileLabel.textContent = isMobile() ? '点击选择 .dat、.txt 或 .json 文件' : '点击或拖动上传 .dat、.txt 或 .json 文件';
+        });
+    });
+
+    document.addEventListener('drop', function(e) {
+        const files = e.dataTransfer.files;
+        if (!files || !files.length) return;
+        const file = files[0];
+
+        if (!(/\.(dat|txt|json)$/i).test(file.name)) {
+            showPopup('请勿上传非 .dat、.txt 或 .json 文件！');
+            return;
+        }
+        if (file.size > maxSize) {
+            showPopup('文件大小不能超过 1MB！');
+            return;
+        }
+
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change'));
+    });
+}
+
+// 拖拽高亮样式
+const dragStyle = document.createElement('style');
+dragStyle.innerHTML = `.custom-file-label.dragover { border-color: #34d399; background: #e0f7ef; color: #059669; }`;
+document.head.appendChild(dragStyle);
+
+// 工具弹窗交互
+const toolsNavBtn = document.getElementById('toolsNavBtn');
+const toolsModal = document.getElementById('tools-modal');
+const toolsModalClose = document.querySelector('.tools-modal-close');
+
+if (toolsNavBtn && toolsModal) {
+    toolsNavBtn.addEventListener('click', function() {
+        toolsModal.classList.add('show');
+    });
+}
+
+if (toolsModalClose && toolsModal) {
+    toolsModalClose.addEventListener('click', function() {
+        toolsModal.classList.remove('show');
+    });
+}
+
+if (toolsModal) {
+    toolsModal.addEventListener('click', function(e) {
+        if (e.target === toolsModal) {
+            toolsModal.classList.remove('show');
+        }
+    });
+}
+
+// 全局弹窗函数
+function showPopup(msg) {
+    const popup = document.getElementById('popup-message');
+    const mask = document.getElementById('popup-mask');
+    if (!popup || !mask) return;
+    popup.innerHTML = `<div class="popup-icon">⚠️</div><div class="popup-text">${msg}</div><button class='popup-btn' onclick='hidePopup()'>确定</button>`;
+    popup.classList.remove('hide');
+    popup.classList.add('show');
+    popup.style.display = 'block';
+    mask.style.display = 'block';
+    setTimeout(() => {
+        popup.classList.add('show');
+    }, 10);
+}
+function hidePopup() {
+    const popup = document.getElementById('popup-message');
+    const mask = document.getElementById('popup-mask');
+    if (!popup || !mask) return;
+    popup.classList.remove('show');
+    popup.classList.add('hide');
+    setTimeout(() => {
+        popup.style.display = 'none';
+        mask.style.display = 'none';
+        popup.classList.remove('hide');
+    }, 180);
+}
+
+// 点击遮罩关闭弹窗
+if (document.getElementById('popup-mask')) {
+    document.getElementById('popup-mask').onclick = hidePopup;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICOS_5贴片工具</title>
+    <link rel="shortcut icon" href="https://tuapi.cccyn.cc/2023/02/27/63fc63411cdbf.jpg">
+    <link rel="stylesheet" href="css/tool-style.css">
+    <style>
+        /* 主页图标样式 */
+        .home-icon-link {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .home-icon-link:hover {
+            transform: translateY(-50%) scale(1.2);
+        }
+
+        .home-icon {
+            width: 40px;
+            height: 40px;
+            display: block;
+        }
+
+        /* 标题栏相对定位，为绝对定位的图标提供参考 */
+        .app-header {
+            position: relative;
+        }
+
+        .app-title {
+            margin-left: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <a href="../" class="home-icon-link" title="返回主页">
+                <svg class="home-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+                    <path d="M997.3 456.4l-419-428.5c-36.4-37.3-96.1-37.3-132.5 0l-419 428.5c-57 58.3-16.6 158 64 158h62.9v307.2c0 56.6 45.8 102.4 102.4 102.4h153.6V768c0-28.3 22.9-51.2 51.2-51.2h102.4c28.3 0 51.2 22.9 51.2 51.2v256H768c56.6 0 102.4-45.8 102.4-102.4V614.4h62.9c80.6 0 121-99.7 64-158z" fill="#00a2ff"></path>
+                </svg>
+            </a>
+            <h1 class="app-title">ICOS_5贴片工具</h1>
+        </header>
+
+        <div class="step-indicator">
+            <div class="step active">1. 上传文件</div>
+            <div class="step">2. 替换图片</div>
+            <div class="step">3. 保存文件</div>
+        </div>
+
+        <div class="icos-tools">
+            <div class="icos-panel">
+                <div class="icos-panel-header">
+                    <h2><span class="icon icon-file"></span> 文件操作</h2>
+                </div>
+                <div class="icos-panel-body">
+                    <label for="icosFileInput" class="icos-file-upload-area" id="icosFileUploadArea">
+                        <div class="icon icon-upload"></div>
+                        <h3>选择DATA文件</h3>
+                        <p>点击或拖放.data文件到此处</p>
+                        <input type="file" id="icosFileInput" class="file-input" accept=".data,application/octet-stream">
+                        <div class="loading" id="icosFileLoading">
+                            <div class="loading-spinner"></div>
+                            正在处理文件...
+                        </div>
+                    </label>
+                    
+                    <div class="icos-file-info" id="icosFileInfo">未选择文件</div>
+                    
+                    <div class="icos-stats">
+                        <div class="icos-stat-item">
+                            <div class="icos-stat-value" id="icosTotalImages">0</div>
+                            <div class="icos-stat-label">图片总数</div>
+                        </div>
+                        <div class="icos-stat-item">
+                            <div class="icos-stat-value" id="icosReplacedImages">0</div>
+                            <div class="icos-stat-label">已替换</div>
+                        </div>
+                        <div class="icos-stat-item">
+                            <div class="icos-stat-value" id="icosFileSize">0 KB</div>
+                            <div class="icos-stat-label">文件大小</div>
+                        </div>
+                    </div>
+                    
+                    <div class="compression-info">
+                        <div class="compression-item">
+                            <div class="compression-value" id="originalSize">0 KB</div>
+                            <div class="compression-label">原始大小</div>
+                        </div>
+                        <div class="compression-item">
+                            <div class="compression-value" id="firstDecompressedSize">0 KB</div>
+                            <div class="compression-label">第一层解压</div>
+                        </div>
+                        <div class="compression-item">
+                            <div class="compression-value" id="secondDecompressedSize">0 KB</div>
+                            <div class="compression-label">第二层解压</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="icos-panel">
+                <div class="icos-panel-header">
+                    <h2><span class="icon icon-image"></span> 图片管理</h2>
+                </div>
+                <div class="icos-panel-body">
+                    <div id="icosImageGrid" class="image-grid">
+                        <div class="empty-state">
+                            <div class="icon icon-image"></div>
+                            <h3>暂无图片</h3>
+                            <p>请先上传DATA文件以查看图片</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top: 15px;">
+            <div class="panel-header">
+                <h2>操作日志</h2>
+            </div>
+            <div class="panel-body">
+                <div class="log-container" id="logContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部固定保存按钮 -->
+    <div class="fixed-save-button">
+        <button id="saveIcosBtnFixed" class="button button-success" disabled>
+            <span class="icon icon-save"></span>
+            保存修改后的ICOS文件
+        </button>
+    </div>
+
+    <!-- 通知区域 -->
+    <div id="notification" class="notification"></div>
+    
+    <!-- 隐藏的文件输入，用于图片替换 -->
+    <input type="file" id="hiddenReplacementInput" accept="image/png" style="display: none;">
+
+    <!-- 图片操作模态框 -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">图片操作</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="panel-body">
+                <div class="preview-container" id="modalPreview">
+                    <!-- 图片预览将在这里显示 -->
+                </div>
+                <div class="button-group">
+                    <button id="exportBtn" class="button">
+                        <span class="icon icon-image"></span>
+                        导出图片
+                    </button>
+                    <button id="replaceBtn" class="button button-success">
+                        <span class="icon icon-upload"></span>
+                        替换图片
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入pako库用于GZIP压缩/解压 -->
+    <script src="js/pako.min.js"></script>
+    <!-- 引入JSZip库用于ZIP文件处理 -->
+    <script src="js/jszip.min.js"></script>
+    
+    <script>
+        // 全局变量
+        let icosFileData = null;
+        let icosImages = [];
+        let icosCurrentImageIndex = -1;
+        let icosFirstDecompressedData = null;
+        let icosSecondDecompressedData = null;
+        let icosOriginalFileName = '';
+        let icosZipData = null; // 存储解压后的ZIP数据
+        let icosZipFiles = []; // 存储ZIP文件结构信息
+        let isProcessing = false;
+
+        // DOM元素
+        const icosFileUploadArea = document.getElementById('icosFileUploadArea');
+        const icosFileInput = document.getElementById('icosFileInput');
+        const icosFileInfo = document.getElementById('icosFileInfo');
+        const icosFileLoading = document.getElementById('icosFileLoading');
+        const icosImageGrid = document.getElementById('icosImageGrid');
+        const originalSizeEl = document.getElementById('originalSize');
+        const firstDecompressedSizeEl = document.getElementById('firstDecompressedSize');
+        const secondDecompressedSizeEl = document.getElementById('secondDecompressedSize');
+        const icosTotalImagesEl = document.getElementById('icosTotalImages');
+        const icosReplacedImagesEl = document.getElementById('icosReplacedImages');
+        const icosFileSizeEl = document.getElementById('icosFileSize');
+        const logContainer = document.getElementById('logContainer');
+        const notification = document.getElementById('notification');
+        const hiddenReplacementInput = document.getElementById('hiddenReplacementInput');
+        const imageModal = document.getElementById('imageModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalPreview = document.getElementById('modalPreview');
+        const exportBtn = document.getElementById('exportBtn');
+        const replaceBtn = document.getElementById('replaceBtn');
+        const closeModal = document.querySelector('.close');
+        const saveIcosBtnFixed = document.getElementById('saveIcosBtnFixed');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('ICOS_5贴片工具已初始化');
+            updateIcosStats();
+            
+            // ICOS_5贴片文件上传区域拖放事件
+            icosFileUploadArea.addEventListener('dragover', (e) => {
+                if (isProcessing) return;
+                e.preventDefault();
+                icosFileUploadArea.style.background = 'rgba(243, 156, 18, 0.2)';
+            });
+            
+            icosFileUploadArea.addEventListener('dragleave', () => {
+                if (isProcessing) return;
+                icosFileUploadArea.style.background = 'rgba(243, 156, 18, 0.05)';
+            });
+            
+            icosFileUploadArea.addEventListener('drop', (e) => {
+                if (isProcessing) return;
+                e.preventDefault();
+                icosFileUploadArea.style.background = 'rgba(243, 156, 18, 0.05)';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleIcosFileSelect(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // ICOS_5贴片文件输入变化事件
+            icosFileInput.addEventListener('change', (e) => {
+                if (isProcessing) return;
+                if (e.target.files.length > 0) {
+                    handleIcosFileSelect(e.target.files[0]);
+                }
+            });
+            
+            // 模态框关闭事件
+            closeModal.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', (e) => {
+                if (e.target === imageModal) {
+                    imageModal.style.display = 'none';
+                }
+            });
+            
+            // 导出按钮事件
+            exportBtn.addEventListener('click', () => {
+                exportIcosImage(icosCurrentImageIndex);
+                imageModal.style.display = 'none';
+            });
+            
+            // 替换按钮事件
+            replaceBtn.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+                hiddenReplacementInput.click();
+            });
+            
+            // 隐藏的替换输入事件
+            hiddenReplacementInput.addEventListener('change', function(e) {
+                if (this.files.length === 0) return;
+                handleIcosImageReplace(this.files[0]);
+            });
+            
+            // ICOS_5贴片固定保存按钮事件
+            saveIcosBtnFixed.addEventListener('click', saveIcosModifiedFile);
+        });
+
+        // 重置ICOS状态
+        function resetIcosState() {
+            icosFileData = null;
+            icosImages = [];
+            icosCurrentImageIndex = -1;
+            icosFirstDecompressedData = null;
+            icosSecondDecompressedData = null;
+            icosZipData = null;
+            icosFileInfo.textContent = '未选择文件';
+            icosFileInfo.classList.remove('has-file');
+            updateIcosImageGrid();
+            updateIcosStats();
+            saveIcosBtnFixed.disabled = true;
+            originalSizeEl.textContent = '0 KB';
+            firstDecompressedSizeEl.textContent = '0 KB';
+            secondDecompressedSizeEl.textContent = '0 KB';
+        }
+
+        // 处理ICOS_5贴片文件选择
+        function handleIcosFileSelect(file) {
+            if (isProcessing) return;
+            
+            // 验证文件类型
+            if (!file.name.toLowerCase().endsWith('.data')) {
+                showNotification('请选择.data格式的文件', 'error');
+                return;
+            }
+            
+            isProcessing = true;
+            icosFileLoading.style.display = 'block';
+            icosFileUploadArea.style.cursor = 'not-allowed';
+            icosFileUploadArea.style.opacity = '0.7';
+            
+            icosFileInfo.textContent = `正在处理: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+            icosFileInfo.classList.remove('has-file');
+            
+            icosOriginalFileName = file.name;
+            
+            // 更新压缩信息显示
+            originalSizeEl.textContent = `${(file.size / 1024).toFixed(2)} KB`;
+            firstDecompressedSizeEl.textContent = '0 KB';
+            secondDecompressedSizeEl.textContent = '0 KB';
+            
+            log(`已选择ICOS_5贴片文件: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)} KB`);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                icosFileData = e.target.result;
+                
+                // 自动开始解压和提取过程
+                extractIcosImagesAutomatically(file);
+            };
+            
+            reader.onerror = function() {
+                log('ICOS_5贴片文件读取失败');
+                showNotification('ICOS_5贴片文件读取失败', 'error');
+                finishIcosFileProcessing(file, false);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 自动提取ICOS_5贴片图片
+        async function extractIcosImagesAutomatically(file) {
+            try {
+                // 解压第一层GZIP
+                log('开始第一层GZIP解压...');
+                icosFirstDecompressedData = pako.inflate(new Uint8Array(icosFileData));
+                firstDecompressedSizeEl.textContent = `${(icosFirstDecompressedData.length / 1024).toFixed(2)} KB`;
+                log(`第一层GZIP解压成功，大小: ${icosFirstDecompressedData.length} 字节`);
+                
+                // 保存ZIP数据用于重新打包
+                icosZipData = icosFirstDecompressedData;
+                
+                // 解压第二层ZIP并提取图片
+                log('开始第二层ZIP解压并提取图片...');
+                icosImages = await parseIcosZipImages(icosZipData);
+                secondDecompressedSizeEl.textContent = `${(icosZipData.length / 1024).toFixed(2)} KB`;
+                
+                finishIcosFileProcessing(file, true);
+                
+            } catch (error) {
+                log(`ICOS_5贴片文件处理失败: ${error.message}`);
+                showNotification('ICOS_5贴片文件处理失败', 'error');
+                finishIcosFileProcessing(file, false);
+            }
+        }
+
+        // 完成ICOS文件处理
+        function finishIcosFileProcessing(file, success = true) {
+            isProcessing = false;
+            icosFileLoading.style.display = 'none';
+            icosFileUploadArea.style.cursor = 'pointer';
+            icosFileUploadArea.style.opacity = '1';
+            
+            if (success) {
+                icosFileInfo.textContent = `已选择: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                icosFileInfo.classList.add('has-file');
+                
+                updateIcosImageGrid();
+                updateIcosStats();
+                
+                if (icosImages.length > 0) {
+                    showNotification(`成功解析ICOS_5贴片文件，找到 ${icosImages.length} 张图片`, 'success');
+                    saveIcosBtnFixed.disabled = false;
+                } else {
+                    showNotification('未在ICOS_5贴片文件中找到PNG图片', 'warning');
+                    saveIcosBtnFixed.disabled = true;
+                }
+            } else {
+                resetIcosState();
+            }
+        }
+
+        // 日志函数
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.textContent += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(message);
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 更新ICOS统计信息
+        function updateIcosStats() {
+            icosTotalImagesEl.textContent = icosImages.length;
+            
+            const replacedCount = icosImages.filter(img => img.replaced).length;
+            icosReplacedImagesEl.textContent = replacedCount;
+            
+            if (icosFileData) {
+                const sizeKB = (icosFileData.byteLength / 1024).toFixed(2);
+                icosFileSizeEl.textContent = `${sizeKB} KB`;
+            } else {
+                icosFileSizeEl.textContent = '0 KB';
+            }
+            
+            // 更新步骤指示器
+            const steps = document.querySelectorAll('.step');
+            if (icosImages.length > 0) {
+                steps[0].classList.add('completed');
+                steps[1].classList.add('active');
+            } else {
+                steps[0].classList.add('active');
+                steps[1].classList.remove('active');
+            }
+            
+            if (replacedCount > 0) {
+                steps[2].classList.add('active');
+            } else {
+                steps[2].classList.remove('active');
+            }
+        }
+
+        // 使用JSZip库解析ZIP文件中的图片 - 彻底重写版
+        function parseIcosZipImages(zipData) {
+            return new Promise((resolve, reject) => {
+                if (typeof JSZip === 'undefined') {
+                    reject(new Error('JSZip库未加载，无法解析ZIP文件'));
+                    return;
+                }
+                
+                const images = [];
+                
+                // 使用JSZip解析ZIP数据
+                JSZip.loadAsync(zipData).then(function(zip) {
+                    const allFiles = [];
+                    
+                    // 获取所有文件，包括子目录
+                    zip.forEach(function (relativePath, zipEntry) {
+                        if (!zipEntry.dir) {
+                            allFiles.push({
+                                name: zipEntry.name,
+                                relativePath: relativePath,
+                                zipEntry: zipEntry
+                            });
+                        }
+                    });
+                    
+                    log(`在ZIP文件中找到 ${allFiles.length} 个文件`);
+                    
+                    // 过滤出PNG文件
+                    const pngFiles = allFiles.filter(file => {
+                        const isPng = file.name.toLowerCase().endsWith('.png') || 
+                                     file.relativePath.toLowerCase().endsWith('.png');
+                        return isPng;
+                    });
+                    
+                    log(`过滤出 ${pngFiles.length} 个PNG文件`);
+                    
+                    // 按文件名排序
+                    pngFiles.sort((a, b) => {
+                        // 提取文件名中的数字进行排序
+                        const numA = extractNumberFromFilename(a.name);
+                        const numB = extractNumberFromFilename(b.name);
+                        return numA - numB;
+                    });
+                    
+                    // 批量处理所有PNG文件
+                    const processFiles = async () => {
+                        for (let i = 0; i < pngFiles.length; i++) {
+                            const fileInfo = pngFiles[i];
+                            
+                            try {
+                                // 使用blob方式处理，避免内存问题
+                                const blob = await fileInfo.zipEntry.async('blob');
+                                const arrayBuffer = await blob.arrayBuffer();
+                                const pngUint8Array = new Uint8Array(arrayBuffer);
+                                
+                                // 基本PNG验证
+                                if (pngUint8Array.length >= 8) {
+                                    const url = URL.createObjectURL(blob);
+                                    
+                                    images.push({
+                                        index: images.length + 1,
+                                        filename: fileInfo.name,
+                                        relativePath: fileInfo.relativePath,
+                                        originalData: pngUint8Array,
+                                        replaced: false,
+                                        url: url,
+                                        width: 0,
+                                        height: 0,
+                                        zipEntry: fileInfo.zipEntry,
+                                        blob: blob // 保存blob引用
+                                    });
+                                    
+                                    log(`成功提取PNG图片 ${i+1}/${pngFiles.length}: ${fileInfo.name}, 大小: ${pngUint8Array.length} 字节`);
+                                    
+                                    // 异步获取图片尺寸，不阻塞处理
+                                    getImageDimensions(url).then(dimensions => {
+                                        const imgIndex = images.findIndex(img => img.url === url);
+                                        if (imgIndex !== -1) {
+                                            images[imgIndex].width = dimensions.width;
+                                            images[imgIndex].height = dimensions.height;
+                                            updateIcosImageGrid();
+                                        }
+                                    }).catch(error => {
+                                        log(`获取图片 ${fileInfo.name} 尺寸时出错: ${error.message}`);
+                                    });
+                                    
+                                } else {
+                                    log(`文件 ${fileInfo.name} 大小异常，跳过处理`);
+                                }
+                                
+                            } catch (error) {
+                                log(`处理文件 ${fileInfo.name} 时出错: ${error.message}`);
+                                // 继续处理下一个文件
+                            }
+                            
+                            // 更新进度
+                            if (i % 5 === 0 || i === pngFiles.length - 1) {
+                                log(`处理进度: ${i+1}/${pngFiles.length}`);
+                                updateIcosImageGrid();
+                            }
+                        }
+                        
+                        resolve(images);
+                    };
+                    
+                    processFiles();
+                    
+                }).catch(function(error) {
+                    reject(new Error(`解析ZIP文件失败: ${error.message}`));
+                });
+            });
+        }
+
+        // 从文件名中提取数字用于排序
+        function extractNumberFromFilename(filename) {
+            // 匹配文件名中的数字
+            const match = filename.match(/\d+/);
+            return match ? parseInt(match[0], 10) : 0;
+        }
+
+        // 获取图片尺寸
+        function getImageDimensions(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    resolve({
+                        width: img.width,
+                        height: img.height
+                    });
+                };
+                img.onerror = function() {
+                    resolve({
+                        width: 0,
+                        height: 0
+                    });
+                };
+                img.src = url;
+            });
+        }
+
+        // 更新ICOS_5贴片图片网格
+        function updateIcosImageGrid() {
+            if (icosImages.length === 0) {
+                icosImageGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon icon-image"></div>
+                        <h3>暂无图片</h3>
+                        <p>请先上传DATA文件以查看图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            icosImageGrid.innerHTML = '';
+            
+            icosImages.forEach((image, index) => {
+                const imageItem = document.createElement('div');
+                imageItem.className = `image-item ${image.replaced ? 'replaced' : ''}`;
+                imageItem.dataset.index = index;
+                
+                imageItem.innerHTML = `
+                    <div class="icos-image-name">${image.filename}</div>
+                    <div class="image-preview">
+                        <img src="${image.url}" alt="${image.filename}" 
+                             onerror="this.style.display='none'; this.parentNode.innerHTML='<div style=\\'color:#95a5a6; font-size:0.7rem; padding:10px;\\'>图片加载失败<br>${(image.originalData.length / 1024).toFixed(1)} KB</div>';"
+                             onload="this.style.opacity='1';">
+                    </div>
+                    <div class="image-info">
+                        ${image.width > 0 ? `${image.width}×${image.height}` : '尺寸加载中...'}
+                        <br>
+                        ${(image.originalData.length / 1024).toFixed(1)} KB
+                        <br>
+                        #${image.index}
+                    </div>
+                `;
+                
+                imageItem.addEventListener('click', () => {
+                    icosCurrentImageIndex = index;
+                    showIcosImageModal(image);
+                });
+                
+                icosImageGrid.appendChild(imageItem);
+            });
+        }
+
+        // 显示ICOS_5贴片图片模态框
+        function showIcosImageModal(image) {
+            modalTitle.textContent = image.filename;
+            modalPreview.innerHTML = `
+                <div style="text-align: center;">
+                    <img src="${image.url}" alt="${image.filename}" 
+                         style="max-width: 100%; max-height: 200px; border-radius: 4px; opacity: 0; transition: opacity 0.3s;"
+                         onload="this.style.opacity='1';"
+                         onerror="this.style.display='none'; this.parentNode.innerHTML='<div style=\\'color:#e74c3c; padding:20px;\\'>图片预览加载失败<br>文件大小: ${(image.originalData.length / 1024).toFixed(1)} KB</div>';">
+                    <p style="margin-top: 10px; font-size: 0.9rem;">
+                        文件名: ${image.filename}<br>
+                        尺寸: ${image.width > 0 ? `${image.width}×${image.height}` : '未知'}<br>
+                        大小: ${(image.originalData.length / 1024).toFixed(1)} KB<br>
+                        格式: PNG<br>
+                        状态: ${image.replaced ? '<span style="color: #27ae60;">已替换</span>' : '<span style="color: #95a5a6;">原始</span>'}
+                    </p>
+                </div>
+            `;
+            imageModal.style.display = 'block';
+        }
+
+        // 导出ICOS_5贴片图片
+        function exportIcosImage(index) {
+            const image = icosImages[index];
+            const blob = new Blob([image.originalData], { type: 'image/png' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = image.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            URL.revokeObjectURL(url);
+            
+            log(`已导出ICOS图片: ${image.filename}`);
+            showNotification(`ICOS图片 ${image.filename} 导出成功`, 'success');
+        }
+
+        // 处理ICOS_5贴片图片替换
+        function handleIcosImageReplace(file) {
+            if (icosCurrentImageIndex === -1) return;
+            
+            // 验证文件类型
+            if (file.type !== 'image/png') {
+                showNotification('请选择PNG格式的图片', 'error');
+                return;
+            }
+            
+            const originalImage = icosImages[icosCurrentImageIndex];
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const newImageData = new Uint8Array(e.target.result);
+                
+                // 验证文件签名
+                if (newImageData[0] !== 0x89 || 
+                    newImageData[1] !== 0x50 || 
+                    newImageData[2] !== 0x4E || 
+                    newImageData[3] !== 0x47) {
+                    showNotification('选择的文件不是有效的PNG图片', 'error');
+                    return;
+                }
+                
+                // 不再检查图片尺寸限制，直接替换
+                const newBlob = new Blob([newImageData], { type: 'image/png' });
+                const newUrl = URL.createObjectURL(newBlob);
+                
+                getImageDimensions(newUrl).then(dimensions => {
+                    URL.revokeObjectURL(newUrl);
+                    
+                    // 替换图片数据
+                    icosImages[icosCurrentImageIndex].originalData = newImageData;
+                    icosImages[icosCurrentImageIndex].replaced = true;
+                    icosImages[icosCurrentImageIndex].url = URL.createObjectURL(new Blob([newImageData], { type: 'image/png' }));
+                    icosImages[icosCurrentImageIndex].width = dimensions.width;
+                    icosImages[icosCurrentImageIndex].height = dimensions.height;
+                    
+                    updateIcosImageGrid();
+                    updateIcosStats();
+                    
+                    log(`已替换ICOS图片: ${originalImage.filename}`);
+                    showNotification(`ICOS图片 ${originalImage.filename} 替换成功`, 'success');
+                });
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 保存修改后的ICOS_5贴片文件
+        function saveIcosModifiedFile() {
+            if (!icosImages.length) return;
+            
+            isProcessing = true;
+            saveIcosBtnFixed.disabled = true;
+            saveIcosBtnFixed.innerHTML = '<div class="loading-spinner"></div> 正在保存...';
+            
+            log('开始生成修改后的ICOS_5贴片文件...');
+            
+            try {
+                // 创建新的ZIP文件
+                const zip = new JSZip();
+                
+                // 首先，添加所有原始文件（包括未修改的）
+                if (icosZipData) {
+                    JSZip.loadAsync(icosZipData).then(function(originalZip) {
+                        const promises = [];
+                        
+                        // 遍历原始ZIP中的所有文件
+                        originalZip.forEach(function (relativePath, zipEntry) {
+                            if (!zipEntry.dir) {
+                                // 检查这个文件是否是我们修改过的图片
+                                const modifiedImage = icosImages.find(img => 
+                                    img.relativePath === relativePath && img.replaced);
+                                
+                                if (modifiedImage) {
+                                    // 使用修改后的图片数据
+                                    zip.file(relativePath, modifiedImage.originalData);
+                                    log(`已更新图片: ${relativePath}`);
+                                } else {
+                                    // 使用原始文件数据
+                                    promises.push(
+                                        zipEntry.async('arraybuffer').then(function(data) {
+                                            zip.file(relativePath, data);
+                                        })
+                                    );
+                                }
+                            }
+                        });
+                        
+                        // 等待所有原始文件添加完成
+                        return Promise.all(promises).then(() => {
+                            // 生成新的ZIP文件
+                            return zip.generateAsync({
+                                type: 'uint8array',
+                                compression: 'DEFLATE'
+                            });
+                        });
+                    }).then(function(zipData) {
+                        // 使用GZIP压缩新的ZIP文件
+                        log('开始GZIP压缩...');
+                        const gzippedData = pako.gzip(zipData);
+                        log(`GZIP压缩成功，大小: ${gzippedData.length} 字节`);
+                        
+                        // 创建下载链接
+                        const blob = new Blob([gzippedData], { type: 'application/octet-stream' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.href = url;
+                        
+                        // 获取原始文件名并添加"new"后缀
+                        if (icosOriginalFileName) {
+                            const fileNameWithoutExt = icosOriginalFileName.substring(0, icosOriginalFileName.lastIndexOf('.'));
+                            const newFileName = `${fileNameWithoutExt}new.data`;
+                            a.download = newFileName;
+                        } else {
+                            // 备用命名方案
+                            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                            a.download = `modified_icos_${timestamp}.data`;
+                        }
+                        
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        
+                        URL.revokeObjectURL(url);
+                        
+                        const originalSizeKB = (icosFileData.byteLength / 1024).toFixed(2);
+                        const newSizeKB = (gzippedData.length / 1024).toFixed(2);
+                        
+                        log(`修改后的ICOS_5贴片文件保存成功，大小: ${newSizeKB} KB (原始: ${originalSizeKB} KB)`);
+                        showNotification(`ICOS_5贴片文件保存成功！新大小: ${newSizeKB} KB`, 'success');
+                        
+                        isProcessing = false;
+                        saveIcosBtnFixed.disabled = false;
+                        saveIcosBtnFixed.innerHTML = '<span class="icon icon-save"></span> 保存修改后的ICOS文件';
+                    }).catch(function(error) {
+                        log(`保存ICOS_5贴片文件时出错: ${error.message}`);
+                        showNotification('保存ICOS_5贴片文件时出错', 'error');
+                        isProcessing = false;
+                        saveIcosBtnFixed.disabled = false;
+                        saveIcosBtnFixed.innerHTML = '<span class="icon icon-save"></span> 保存修改后的ICOS文件';
+                    });
+                }
+                
+            } catch (error) {
+                log(`保存ICOS_5贴片文件时出错: ${error.message}`);
+                showNotification('保存ICOS_5贴片文件时出错', 'error');
+                isProcessing = false;
+                saveIcosBtnFixed.disabled = false;
+                saveIcosBtnFixed.innerHTML = '<span class="icon icon-save"></span> 保存修改后的ICOS文件';
+            }
+        }
+    </script>
+</body>
+</html>

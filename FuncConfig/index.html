@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FuncConfig 在线编辑工具</title>
+    <link rel="shortcut icon" href="https://tuapi.cccyn.cc/2023/02/27/63fc63411cdbf.jpg">
+    <link rel="stylesheet" href="css/tool-style.css">
+    <link rel="stylesheet" href="css/codemirror.min.css">
+    <link rel="stylesheet" href="css/material.min.css">
+    <script src="js/crypto-js.min.js"></script>
+    <script src="js/codemirror.min.js"></script>
+    <script src="js/javascript.min.js"></script>
+    <!-- CodeMirror 搜索插件 -->
+    <script src="js/search.min.js"></script>
+    <script src="js/searchcursor.min.js"></script>
+    <script src="js/jump-to-line.min.js"></script>
+    <style>
+        /* 编辑器容器 */
+        .editor-container {
+            position: relative;
+            height: 500px;
+            border-radius: var(--small-radius);
+            overflow: hidden;
+            box-shadow: var(--box-shadow);
+        }
+        
+        /* CodeMirror编辑器样式 */
+        .CodeMirror {
+            height: 100%;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            border-radius: var(--small-radius);
+        }
+        
+        /* CodeMirror选中文本 */
+        .CodeMirror-selected {
+            background: #a5b4fc !important;
+            color: white !important;
+        }
+
+        /* CodeMirror搜索高亮 */
+        .CodeMirror-searching {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+        }
+
+        /* CodeMirror当前选中的搜索结果 */
+        .CodeMirror-searching-current {
+            background: #f97316 !important;
+            color: white !important;
+            border: 2px solid #ea580c !important;
+            font-weight: bold !important;
+        }
+        
+        /* 搜索容器 */
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-input-wrapper {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 100px 12px 14px;
+            border: 2px solid var(--primary-color);
+            border-radius: var(--small-radius);
+            background: linear-gradient(90deg, #f1f5f9 0%, #e0e7ef 100%);
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
+        }
+
+        .search-input:disabled {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        /* 搜索按钮在输入框内 */
+        .search-btn-inline {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .search-btn-inline:hover:not(:disabled) {
+            background: #2563eb;
+        }
+
+        .search-btn-inline:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .search-nav {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .search-nav-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--primary-color);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        
+        .search-nav-btn:hover:not(:disabled) {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .search-nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        /* 字段提示 */
+        .field-hint {
+            background: linear-gradient(90deg, #e0e7ff 0%, #c7d2fe 100%);
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #7c3aed;
+            padding: 10px 12px;
+            margin-top: 12px;
+            border-radius: var(--small-radius);
+            font-size: 0.85rem;
+            color: #4c1d95;
+            line-height: 1.4;
+        }
+
+        .field-hint-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: #5b21b6;
+        }
+
+        .field-hint-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .field-hint-label {
+            font-weight: 500;
+            color: #5b21b6;
+        }
+
+        .field-hint-value {
+            background: rgba(255, 255, 255, 0.6);
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #4c1d95;
+        }
+
+        .field-hint-desc {
+            color: #5b21b6;
+            opacity: 0.85;
+            font-size: 0.8rem;
+        }
+
+        /* 修改历史记录面板 */
+        .modification-history {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--small-radius);
+            padding: 12px;
+            margin-top: 15px;
+            box-shadow: var(--box-shadow);
+            display: none;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        .history-header h3 {
+            margin: 0;
+            color: #334155;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .history-close {
+            background: #94a3b8;
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .history-close:hover {
+            background: #64748b;
+        }
+
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .history-item-fieldname {
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.85rem;
+            min-width: 120px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item-fieldname:hover {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+
+        .history-item-oldvalue {
+            color: #64748b;
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            padding: 3px 8px;
+            border-radius: 3px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item-oldvalue:hover {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .history-item-arrow {
+            color: #94a3b8;
+            font-weight: bold;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .history-item-newvalue {
+            color: #059669;
+            font-weight: 500;
+            font-size: 0.8rem;
+            background: #ecfdf5;
+            padding: 3px 8px;
+            border-radius: 3px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item-newvalue:hover {
+            background: #d1fae5;
+            color: #047857;
+        }
+
+        .history-btn {
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin-left: auto;
+        }
+
+        .restore-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .restore-btn:hover {
+            background: #2563eb;
+        }
+
+        .history-empty {
+            text-align: center;
+            color: #94a3b8;
+            padding: 20px 0;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        /* 布局覆盖 - 使用grid布局，比例1:2 */
+        .app-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 15px;
+            align-items: start;
+        }
+
+        @media (max-width: 992px) {
+            .app-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 已修改区域hover效果 */
+        #changedCountItem:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: var(--small-radius);
+        }
+
+        #changedCountItem:hover .stat-value {
+            color: #3b82f6;
+        }
+
+        #changedCountItem:hover .stat-label {
+            color: #2563eb;
+        }
+
+        /* 主页图标样式 */
+        .home-icon-link {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .home-icon-link:hover {
+            transform: translateY(-50%) scale(1.2);
+        }
+
+        .home-icon {
+            width: 40px;
+            height: 40px;
+            display: block;
+        }
+
+        /* 标题栏相对定位，为绝对定位的图标提供参考 */
+        .app-header {
+            position: relative;
+        }
+
+        .app-title {
+            margin-left: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <a href="../" class="home-icon-link" title="返回主页">
+                <svg class="home-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+                    <path d="M997.3 456.4l-419-428.5c-36.4-37.3-96.1-37.3-132.5 0l-419 428.5c-57 58.3-16.6 158 64 158h62.9v307.2c0 56.6 45.8 102.4 102.4 102.4h153.6V768c0-28.3 22.9-51.2 51.2-51.2h102.4c28.3 0 51.2 22.9 51.2 51.2v256H768c56.6 0 102.4-45.8 102.4-102.4V614.4h62.9c80.6 0 121-99.7 64-158z" fill="#00a2ff"></path>
+                </svg>
+            </a>
+            <h1 class="app-title">FuncConfig 在线编辑工具</h1>
+            <p class="app-subtitle">自动识别版本 · 智能提示 · 在线编辑</p>
+        </header>
+
+        <div class="app-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span class="icon icon-file"></span> 文件操作</h2>
+                </div>
+                <div class="panel-body">
+                    <label for="fileInput" class="file-upload-area" id="fileUploadArea">
+                        <div class="icon icon-upload"></div>
+                        <h3>选择 .dat 或 .json 文件</h3>
+                        <p>点击或拖放文件到此处</p>
+                        <input type="file" id="fileInput" class="file-input" accept=".dat,.json,application/octet-stream,application/json">
+                        <div class="loading" id="fileLoading">
+                            <div class="loading-spinner"></div>
+                            正在处理文件...
+                        </div>
+                    </label>
+                    
+                    <div class="file-info" id="fileInfo">未选择文件</div>
+                    
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="versionBadge">-</div>
+                            <div class="stat-label">解密版本</div>
+                        </div>
+                        <div class="stat-item" id="changedCountItem" style="cursor: pointer;">
+                            <div class="stat-value" id="changedCount">0</div>
+                            <div class="stat-label">已修改</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="fileSize">0 KB</div>
+                            <div class="stat-label">文件大小</div>
+                        </div>
+                    </div>
+
+                    <div class="modification-history" id="historyPanel">
+                        <div class="history-header">
+                            <h3>📝 修改历史</h3>
+                            <button class="history-close" id="closeHistoryBtn">✕</button>
+                        </div>
+                        <div class="history-list" id="historyList"></div>
+                    </div>
+
+                    <div class="field-hint" id="fieldHint" style="display: none;">
+                        <div class="field-hint-title" id="hintTitle"></div>
+                        <div id="hintContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" id="editorPanel">
+                <div class="panel-header">
+                    <h2><span class="icon icon-image"></span> 在线编辑</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="search-container">
+                        <div class="search-input-wrapper">
+                            <input type="text" class="search-input" id="searchInput" placeholder="搜索配置项..." disabled>
+                            <button class="search-btn-inline" id="searchBtn" disabled>搜索</button>
+                        </div>
+                        <div class="search-nav">
+                            <button class="search-nav-btn" id="searchPrev" disabled>↑</button>
+                            <button class="search-nav-btn" id="searchNext" disabled>↓</button>
+                        </div>
+                    </div>
+
+                    <div class="editor-container">
+                        <textarea id="editor"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fixed-save-button" id="saveButton">
+            <button id="saveBtn" class="button button-success" disabled>
+                <span class="icon icon-save"></span>
+                保存修改后的文件
+            </button>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <!-- 加载配置注释（使用 script 标签避免 CORS 问题） -->
+    <script src="Funcconfig.js"></script>
+    <script src="uiconfig.js"></script>
+
+    <script>
+        // 预设密钥配置
+        const PRESETS = {
+            '7.5': {
+                key: 'Jbga21autoj7ZAsF',
+                iv: 'Jbga21autoj7ZAsF',
+                prefix: '1234567812345678'
+            },
+            '8.5': {
+                key: 'Yqwr31autou4PbNM',
+                iv: '1234567812345678',
+                prefix: '9zxc46abc7o28l4t'
+            }
+        };
+
+        // 配置项注释映射
+        const FIELD_COMMENTS = {};
+
+        // 全局变量
+        let editor = null;
+        let originalContent = '';
+        let currentVersion = null;
+        let searchResults = [];
+        let currentSearchIndex = -1;
+        let originalFileName = '';
+        let originalFileSize = 0;
+        let isEncryptedFile = false;  // 标记文件是否加密
+
+        // 修改历史记录
+        let modificationHistory = [];
+        let historyPanelVisible = false;
+
+        // DOM元素
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileLoading = document.getElementById('fileLoading');
+        const editorPanel = document.getElementById('editorPanel');
+        const saveButton = document.getElementById('saveButton');
+        const saveBtn = document.getElementById('saveBtn');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchPrev = document.getElementById('searchPrev');
+        const searchNext = document.getElementById('searchNext');
+        const fieldHint = document.getElementById('fieldHint');
+        const hintTitle = document.getElementById('hintTitle');
+        const hintContent = document.getElementById('hintContent');
+        const versionBadge = document.getElementById('versionBadge');
+        const changedCount = document.getElementById('changedCount');
+        const changedCountItem = document.getElementById('changedCountItem');
+        const fileSizeEl = document.getElementById('fileSize');
+        const historyPanel = document.getElementById('historyPanel');
+        const historyList = document.getElementById('historyList');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+
+        // 加载配置注释
+        function loadFieldComments() {
+            console.log('开始加载配置注释...');
+            console.log('当前页面 URL:', window.location.href);
+            console.log('协议:', window.location.protocol);
+
+            let loadedCount = 0;
+
+            // 加载 FuncConfig 注释
+            if (typeof FIELD_COMMENTS_DATA !== 'undefined') {
+                Object.assign(FIELD_COMMENTS, FIELD_COMMENTS_DATA);
+                loadedCount += Object.keys(FIELD_COMMENTS_DATA).length;
+                console.log(`✓ 成功加载 FuncConfig 注释 ${Object.keys(FIELD_COMMENTS_DATA).length} 个`);
+            } else {
+                console.error('✗ 加载 FuncConfig 注释失败: FIELD_COMMENTS_DATA 未定义');
+            }
+
+            // 加载 UiConfig 注释
+            if (typeof UICONFIG_COMMENTS !== 'undefined') {
+                Object.assign(FIELD_COMMENTS, UICONFIG_COMMENTS);
+                loadedCount += Object.keys(UICONFIG_COMMENTS).length;
+                console.log(`✓ 成功加载 UiConfig 注释 ${Object.keys(UICONFIG_COMMENTS).length} 个`);
+            } else {
+                console.error('✗ 加载 UiConfig 注释失败: UICONFIG_COMMENTS 未定义');
+            }
+
+            if (loadedCount > 0) {
+                console.log(`✓ 总共加载 ${Object.keys(FIELD_COMMENTS).length} 个配置项注释`);
+            } else {
+                showNotification('加载配置注释失败，智能提示功能不可用', 'error');
+            }
+        }
+
+        // 初始化编辑器
+        function initEditor() {
+            editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+                mode: 'javascript',
+                theme: 'material',
+                lineNumbers: true,
+                lineWrapping: true,
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                foldGutter: true,
+                gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+            });
+
+            // 监听光标变化，显示字段提示
+            editor.on('cursorActivity', showFieldHint);
+            
+            // 监听编辑器点击，显示字段提示
+            editor.on('click', showFieldHint);
+            
+            // 监听内容变化，标记修改
+            editor.on('change', onEditorChange);
+            
+            // 监听选择变化，显示字段提示
+            editor.on('beforeSelectionChange', showFieldHint);
+        }
+
+        // 显示字段提示
+        function showFieldHint() {
+            if (!editor) return;
+
+            const cursor = editor.getCursor();
+            const line = editor.getLine(cursor.line);
+            const lineNumber = cursor.line + 1; // 转换为1-based索引
+
+            console.log(`[字段提示] 光标位置: 第${lineNumber}行, 第${cursor.ch}列`);
+            console.log(`[字段提示] 当前行内容: ${line}`);
+
+            // 提取字段名（支持多种格式）
+            // 格式1: "FieldName": "value"
+            // 格式2: "FieldName":"value"
+            // 格式3: "FieldName" : "value"
+            let fieldName = null;
+
+            // 尝试匹配 "FieldName":
+            const match1 = line.match(/"([^"]+)"\s*:/);
+            if (match1) {
+                fieldName = match1[1];
+                console.log(`[字段提示] 通过正则匹配到字段: ${fieldName}`);
+            }
+
+            // 如果没有匹配，尝试从光标位置向后查找
+            if (!fieldName) {
+                const lineBeforeCursor = line.substring(0, cursor.ch);
+                const match2 = lineBeforeCursor.match(/"([^"]+)"$/);
+                if (match2) {
+                    fieldName = match2[1];
+                    console.log(`[字段提示] 通过光标前内容匹配到字段: ${fieldName}`);
+                }
+            }
+
+            if (fieldName) {
+                console.log(`[字段提示] 查找字段注释: ${fieldName}`);
+                const fieldData = FIELD_COMMENTS[fieldName];
+
+                if (fieldData) {
+                    console.log(`[字段提示] ✓ 找到注释`, fieldData);
+                    fieldHint.style.display = 'block';
+                    hintTitle.textContent = `${fieldName}`;
+
+                    let commentHtml = `
+                        <div class="field-hint-content">
+                            <span class="field-hint-label">默认:</span>
+                            <span class="field-hint-value">${escapeHtml(fieldData.default)}</span>
+                        </div>
+                    `;
+
+                    if (fieldData.comment) {
+                        commentHtml += `
+                            <div class="field-hint-content" style="margin-top: 4px;">
+                                <span class="field-hint-label">说明:</span>
+                                <span class="field-hint-desc">${escapeHtml(fieldData.comment)}</span>
+                            </div>
+                        `;
+                    } else {
+                        commentHtml += `
+                            <div class="field-hint-content" style="margin-top: 4px;">
+                                <span class="field-hint-label">说明:</span>
+                                <span class="field-hint-desc" style="color: #92400e; opacity: 0.6;">暂无说明</span>
+                            </div>
+                        `;
+                    }
+
+                    hintContent.innerHTML = commentHtml;
+                } else {
+                    console.log(`[字段提示] ✗ 未找到字段 "${fieldName}" 的注释`);
+                    console.log(`[字段提示] FIELD_COMMENTS 包含 ${Object.keys(FIELD_COMMENTS).length} 个字段`);
+                    fieldHint.style.display = 'none';
+                }
+            } else {
+                console.log(`[字段提示] 当前行未识别到字段名`);
+                fieldHint.style.display = 'none';
+            }
+        }
+
+        // 编辑器内容变化处理
+        function onEditorChange() {
+            // 清除搜索标记（因为位置可能已变化）
+            if (searchResults.length > 0) {
+                clearSearchMarkers();
+                searchResults = [];
+                searchBtn.textContent = '搜索';
+                searchPrev.disabled = true;
+                searchNext.disabled = true;
+            }
+
+            const currentContent = editor.getValue();
+            const hasChanges = currentContent !== originalContent;
+
+            if (hasChanges && originalContent) {
+                // 解析当前和原始 JSON
+                const currentJson = safeParseJson(currentContent);
+                const originalJson = safeParseJson(originalContent);
+
+                if (currentJson && originalJson) {
+                    // 检测字段变化
+                    // 如果是数组格式，取第一个元素进行比较
+                    const currentObj = Array.isArray(currentJson) ? currentJson[0] : currentJson;
+                    const originalObj = Array.isArray(originalJson) ? originalJson[0] : originalJson;
+                    
+                    if (currentObj && originalObj) {
+                        detectFieldChanges(originalObj, currentObj);
+                    }
+                }
+
+                // 计算修改数量
+                const currentLines = currentContent.split('\n');
+                const originalLines = originalContent.split('\n');
+                let count = 0;
+
+                for (let i = 0; i < Math.min(currentLines.length, originalLines.length); i++) {
+                    if (currentLines[i] !== originalLines[i]) {
+                        count++;
+                    }
+                }
+
+                changedCount.textContent = count;
+                saveBtn.disabled = false;
+
+                // 修改后默认展开历史记录
+                if (!historyPanelVisible && modificationHistory.length > 0) {
+                    historyPanelVisible = true;
+                    historyPanel.style.display = 'block';
+                    changedCountItem.style.cursor = 'default';
+                }
+            } else {
+                changedCount.textContent = '0';
+                saveBtn.disabled = true;
+
+                // 无修改时清空历史记录
+                clearModificationHistory();
+
+                // 收起历史记录
+                if (historyPanelVisible) {
+                    historyPanelVisible = false;
+                    historyPanel.style.display = 'none';
+                    changedCountItem.style.cursor = 'pointer';
+                }
+            }
+        }
+
+        // 自动尝试版本解密
+        async function tryDecryptWithVersion(fileData, version) {
+            const preset = PRESETS[version];
+
+            try {
+                console.log(`尝试${version}版本解密...`);
+                console.log(`密钥: ${preset.key}, IV: ${preset.iv}`);
+                const decrypted = decryptFile(fileData, preset.key, preset.iv);
+                console.log(`解密成功，数据长度: ${decrypted.length}`);
+
+                // 尝试多种编码方式
+                let text;
+                try {
+                    text = new TextDecoder('utf-8').decode(decrypted);
+                } catch (e) {
+                    text = new TextDecoder('utf-16le').decode(decrypted);
+                }
+
+                console.log(`解码后文本前200字符:`, text.substring(0, 200));
+                
+                // 清理可能的控制字符
+                let cleanedText = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+                
+                // 尝试解析为JSON，支持单个对象和多个对象
+                let jsonObj;
+                let finalText = cleanedText;
+                
+                try {
+                    // 先尝试解析为单个JSON对象
+                    jsonObj = JSON.parse(cleanedText);
+                    console.log(`JSON解析成功（单个对象），字段数: ${Object.keys(jsonObj).length}`);
+                } catch (jsonError) {
+                    // 尝试解析为多个JSON对象
+                    try {
+                        // 尝试1：解析为JSON数组
+                        try {
+                            const array = JSON.parse('[' + cleanedText + ']');
+                            if (Array.isArray(array) && array.length > 0) {
+                                jsonObj = array.reduce((merged, obj) => ({ ...merged, ...obj }), {});
+                                finalText = JSON.stringify(jsonObj, null, 2);
+                                console.log(`JSON解析成功（数组格式，${array.length}个对象合并），字段数: ${Object.keys(jsonObj).length}`);
+                                return { success: true, text: finalText, version, json: jsonObj };
+                            }
+                        } catch (e) {
+                            // 数组解析失败，继续尝试其他方式
+                        }
+                        
+                        // 尝试2：按行分割（JSON Lines格式）
+                        const lines = cleanedText.trim().split('\n').filter(line => line.trim());
+                        if (lines.length > 1) {
+                            const objects = [];
+                            for (const line of lines) {
+                                if (line.trim()) {
+                                    try {
+                                        const obj = JSON.parse(line);
+                                        objects.push(obj);
+                                    } catch (e) {
+                                        // 忽略解析失败的行
+                                    }
+                                }
+                            }
+                            if (objects.length > 0) {
+                                jsonObj = objects.reduce((merged, obj) => ({ ...merged, ...obj }), {});
+                                finalText = JSON.stringify(jsonObj, null, 2);
+                                console.log(`JSON解析成功（按行分割，${objects.length}个对象合并），字段数: ${Object.keys(jsonObj).length}`);
+                                return { success: true, text: finalText, version, json: jsonObj };
+                            }
+                        }
+                        
+                        // 尝试3：按逗号分割多个JSON对象
+                        const commaSeparated = cleanedText.split('},').map(s => s.trim()).filter(s => s);
+                        if (commaSeparated.length > 1) {
+                            const objects = [];
+                            for (const item of commaSeparated) {
+                                let itemText = item;
+                                // 修复可能缺少的闭合大括号
+                                if (!itemText.endsWith('}')) {
+                                    itemText += '}';
+                                }
+                                // 修复可能缺少的起始大括号
+                                if (!itemText.startsWith('{')) {
+                                    itemText = '{' + itemText;
+                                }
+                                try {
+                                    const obj = JSON.parse(itemText);
+                                    objects.push(obj);
+                                } catch (e) {
+                                    // 忽略解析失败的对象
+                                }
+                            }
+                            if (objects.length > 0) {
+                                jsonObj = objects.reduce((merged, obj) => ({ ...merged, ...obj }), {});
+                                finalText = JSON.stringify(jsonObj, null, 2);
+                                console.log(`JSON解析成功（逗号分隔，${objects.length}个对象合并），字段数: ${Object.keys(jsonObj).length}`);
+                                return { success: true, text: finalText, version, json: jsonObj };
+                            }
+                        }
+                        
+                        // 尝试4：单行trim后重试
+                        const trimmedText = cleanedText.trim();
+                        jsonObj = JSON.parse(trimmedText);
+                        console.log(`JSON解析成功（trim后），字段数: ${Object.keys(jsonObj).length}`);
+                    } catch (multiError) {
+                        throw new Error(`JSON解析失败: ${multiError.message}`);
+                    }
+                }
+                
+                return { success: true, text: finalText, version, json: jsonObj };
+            } catch (error) {
+                console.log(`${version}版本解密失败:`, error.message);
+                return { success: false, version };
+            }
+        }
+
+        // 处理 JSON 文件（检测是否加密）
+        async function handleJsonFile(fileData, fileName) {
+            console.log('开始处理 JSON 文件:', fileName);
+
+            // 先尝试解析为明文 JSON
+            try {
+                const text = new TextDecoder('utf-8').decode(fileData);
+                const jsonObj = JSON.parse(text);
+                console.log('✓ JSON 文件是明文格式，字段数:', Object.keys(jsonObj).length);
+                return { success: true, text, version: '明文', encrypted: false, json: jsonObj };
+            } catch (e) {
+                console.log('✗ JSON 文件不是明文格式，尝试解密...');
+            }
+
+            // 如果解析失败，尝试解密
+            showNotification('尝试使用 7.5 版本解密 JSON...', 'warning');
+            let result = await tryDecryptWithVersion(fileData, '7.5');
+
+            if (!result.success) {
+                showNotification('尝试使用 8.5 版本解密 JSON...', 'warning');
+                result = await tryDecryptWithVersion(fileData, '8.5');
+            }
+
+            if (result.success) {
+                result.encrypted = true;
+                console.log(`✓ JSON 文件使用 ${result.version} 版本加密`);
+            }
+
+            return result;
+        }
+
+        // 使用 CryptoJS 解密（与主目录完全一致）
+        function decryptFile(fileData, key, iv) {
+            try {
+                const wordArray = CryptoJS.lib.WordArray.create(fileData);
+                const decrypted = CryptoJS.AES.decrypt(
+                    { ciphertext: wordArray },
+                    CryptoJS.enc.Utf8.parse(key),
+                    { iv: CryptoJS.enc.Utf8.parse(iv), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.NoPadding }
+                );
+
+                // 转换为 Uint8Array
+                const u8 = new Uint8Array(decrypted.words.length * 4);
+                for (let i = 0; i < decrypted.words.length; i++) {
+                    const word = decrypted.words[i];
+                    u8[i * 4] = (word >> 24) & 0xff;
+                    u8[i * 4 + 1] = (word >> 16) & 0xff;
+                    u8[i * 4 + 2] = (word >> 8) & 0xff;
+                    u8[i * 4 + 3] = word & 0xff;
+                }
+
+                // 检查解密后数据长度
+                if (u8.length < 20) {
+                    throw new Error('解密失败：数据长度不足');
+                }
+
+                // 提取长度信息 (从第16字节开始，4字节小端序)
+                const plainLen = new DataView(u8.buffer, 16, 4).getUint32(0, true);
+
+                // 检查长度是否合理
+                if (plainLen <= 0 || plainLen > u8.length - 20) {
+                    throw new Error('解密失败：数据长度异常');
+                }
+
+                // 提取实际数据 (从第20字节开始，长度为plainLen)
+                const realPlain = u8.slice(20, 20 + plainLen);
+
+                return realPlain;
+            } catch (error) {
+                throw new Error('解密失败：' + error.message);
+            }
+        }
+
+        // 使用 CryptoJS 加密（与主目录完全一致）
+        function encryptFile(fileData, key, iv, prefix) {
+            try {
+                const plainLen = fileData.length;
+                const lenBytes = new ArrayBuffer(4);
+                new DataView(lenBytes).setUint32(0, plainLen, true);
+
+                // 拼接：前缀 + 长度(4字节) + 原始数据
+                const toEncrypt = new Uint8Array([
+                    ...new TextEncoder().encode(prefix),
+                    ...new Uint8Array(lenBytes),
+                    ...fileData
+                ]);
+
+                // 零填充（与PHP版本一致）
+                const blockSize = 16;
+                const padLen = blockSize - (toEncrypt.length % blockSize);
+                const paddedData = new Uint8Array(toEncrypt.length + padLen);
+                paddedData.set(toEncrypt);
+                // 剩余字节填充0（不需要显式操作，新数组默认为0）
+
+                // 转换为 CryptoJS WordArray
+                const wordArray = CryptoJS.lib.WordArray.create(paddedData);
+                const encrypted = CryptoJS.AES.encrypt(
+                    wordArray,
+                    CryptoJS.enc.Utf8.parse(key),
+                    { iv: CryptoJS.enc.Utf8.parse(iv), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.NoPadding }
+                );
+
+                // 转换为 Uint8Array
+                const encWords = encrypted.ciphertext.words;
+                const u8 = new Uint8Array(encWords.length * 4);
+                for (let i = 0; i < encWords.length; i++) {
+                    const word = encWords[i];
+                    u8[i * 4] = (word >> 24) & 0xff;
+                    u8[i * 4 + 1] = (word >> 16) & 0xff;
+                    u8[i * 4 + 2] = (word >> 8) & 0xff;
+                    u8[i * 4 + 3] = word & 0xff;
+                }
+
+                return u8;
+            } catch (error) {
+                throw new Error('加密失败：' + error.message);
+            }
+        }
+
+        // 只监听文件选择，不监听点击区域（避免两次弹出）
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.style.background = 'rgba(52, 152, 219, 0.2)';
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.style.background = 'rgba(52, 152, 219, 0.05)';
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.style.background = 'rgba(52, 152, 219, 0.05)';
+
+            if (e.dataTransfer.files.length > 0) {
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // 处理文件
+        async function handleFileSelect(file) {
+            const fileExt = file.name.toLowerCase();
+            if (!fileExt.endsWith('.dat') && !fileExt.endsWith('.json')) {
+                showNotification('请选择 .dat 或 .json 格式的文件', 'error');
+                return;
+            }
+
+            fileLoading.style.display = 'block';
+            fileUploadArea.style.cursor = 'not-allowed';
+            fileUploadArea.style.opacity = '0.7';
+
+            originalFileName = file.name;
+            originalFileSize = file.size;
+            fileInfo.textContent = `正在处理: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+            fileInfo.classList.remove('has-file');
+
+            try {
+                const fileData = new Uint8Array(await file.arrayBuffer());
+                const fileExt = file.name.split('.').pop().toLowerCase();
+
+                let result;
+
+                // 根据文件扩展名处理
+                if (fileExt === 'json') {
+                    // JSON 文件：检测是否加密
+                    showNotification('检测 JSON 文件...', 'warning');
+                    result = await handleJsonFile(fileData, file.name);
+                } else {
+                    // .dat 文件：尝试解密
+                    showNotification('尝试使用 7.5 版本解密...', 'warning');
+                    result = await tryDecryptWithVersion(fileData, '7.5');
+
+                    if (!result.success) {
+                        // 尝试8.5版本
+                        showNotification('尝试使用 8.5 版本解密...', 'warning');
+                        result = await tryDecryptWithVersion(fileData, '8.5');
+                    }
+                }
+
+                if (result.success) {
+                    currentVersion = result.version;
+                    isEncryptedFile = result.encrypted || false;
+                    originalContent = formatJson(result.text);
+
+                    // 设置编辑器内容
+                    editor.setValue(originalContent);
+
+                    // 更新UI
+                    fileInfo.textContent = `已选择: ${file.name}`;
+                    fileInfo.classList.add('has-file');
+                    versionBadge.textContent = result.version;
+                    fileSizeEl.textContent = `${(file.size / 1024).toFixed(2)} KB`;
+                    searchInput.disabled = false;
+                    searchBtn.disabled = false;
+                    saveBtn.disabled = true;
+                    changedCount.textContent = '0';
+
+                    // 重置历史记录面板状态
+                    historyPanelVisible = false;
+                    historyPanel.style.display = 'none';
+                    changedCountItem.style.cursor = 'pointer';
+
+                    showNotification(`成功${isEncryptedFile ? '解密' : '加载'}文件`, 'success');
+                } else {
+                    showNotification('无法识别文件，处理失败', 'error');
+                }
+            } catch (error) {
+                console.error('文件处理错误:', error);
+                showNotification('文件处理失败: ' + error.message, 'error');
+            } finally {
+                fileLoading.style.display = 'none';
+                fileUploadArea.style.cursor = 'pointer';
+                fileUploadArea.style.opacity = '1';
+            }
+        }
+
+        // 格式化JSON
+        function formatJson(jsonString) {
+            try {
+                const obj = JSON.parse(jsonString);
+                return JSON.stringify(obj, null, 2);
+            } catch (e) {
+                return jsonString;
+            }
+        }
+
+        // 安全解析 JSON
+        function safeParseJson(jsonString) {
+            try {
+                return JSON.parse(jsonString);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 检测字段变化
+        function detectFieldChanges(original, current) {
+            const changes = [];
+
+            for (const key in current) {
+                if (original.hasOwnProperty(key)) {
+                    const oldValue = original[key];
+                    const newValue = current[key];
+
+                    // 值不同，记录变化
+                    if (oldValue !== newValue) {
+                        changes.push({
+                            fieldName: key,
+                            oldValue: String(oldValue),
+                            newValue: String(newValue),
+                            timestamp: Date.now()
+                        });
+                    }
+                }
+            }
+
+            // 更新历史记录（添加新变化）
+            if (changes.length > 0) {
+                updateModificationHistory(changes);
+            }
+        }
+
+        // 更新历史记录
+        function updateModificationHistory(changes) {
+            // 检查是否已存在该字段的记录
+            changes.forEach(change => {
+                const existingIndex = modificationHistory.findIndex(
+                    h => h.fieldName === change.fieldName
+                );
+
+                if (existingIndex >= 0) {
+                    // 更新现有记录
+                    modificationHistory[existingIndex] = {
+                        ...modificationHistory[existingIndex],
+                        oldValue: change.oldValue,
+                        newValue: change.newValue,
+                        timestamp: change.timestamp
+                    };
+                } else {
+                    // 添加新记录
+                    modificationHistory.push(change);
+                }
+            });
+
+            renderHistoryList();
+        }
+
+        // 渲染历史列表
+        function renderHistoryList() {
+            historyList.innerHTML = '';
+
+            if (modificationHistory.length === 0) {
+                historyList.innerHTML = '<div class="history-empty">暂无修改记录</div>';
+                return;
+            }
+
+            modificationHistory.forEach((change, index) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <span class="history-item-fieldname">${escapeHtml(change.fieldName)}</span>
+                    <span class="history-item-oldvalue" data-field="${escapeHtml(change.fieldName)}" data-value="${escapeHtml(change.oldValue)}" title="${escapeHtml(change.oldValue)}">${escapeHtml(change.oldValue)}</span>
+                    <span class="history-item-arrow">→</span>
+                    <span class="history-item-newvalue" data-field="${escapeHtml(change.fieldName)}" data-value="${escapeHtml(change.newValue)}" title="${escapeHtml(change.newValue)}">${escapeHtml(change.newValue)}</span>
+                    <button class="history-btn restore-btn" data-index="${index}">恢复</button>
+                `;
+                historyList.appendChild(item);
+            });
+
+            // 绑定恢复按钮事件
+            document.querySelectorAll('.restore-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.dataset.index);
+                    restoreOriginalValue(index);
+                });
+            });
+
+            // 绑定字段名点击跳转事件
+            document.querySelectorAll('.history-item-fieldname').forEach(span => {
+                span.addEventListener('click', () => {
+                    const fieldName = span.textContent;
+                    jumpToFieldInEditor(fieldName, null);
+                });
+            });
+
+            // 绑定点击值跳转到编辑器的事件
+            document.querySelectorAll('.history-item-oldvalue, .history-item-newvalue').forEach(span => {
+                span.addEventListener('click', () => {
+                    const fieldName = span.dataset.field;
+                    const value = span.dataset.value;
+                    jumpToFieldInEditor(fieldName, value);
+                });
+            });
+        }
+
+        // 跳转到编辑器中的字段位置
+        function jumpToFieldInEditor(fieldName, value) {
+            if (!editor) return;
+
+            const content = editor.getValue();
+
+            // 搜索字段名 "fieldName":
+            const fieldPattern = `"${fieldName}"\\s*:`;
+            const fieldMatch = content.match(new RegExp(fieldPattern));
+
+            if (fieldMatch) {
+                // 找到字段名的位置
+                const fieldIndex = content.indexOf(fieldMatch[0]);
+
+                // 获取行号和列号
+                const beforeField = content.substring(0, fieldIndex);
+                const line = beforeField.split('\n').length;
+                const ch = beforeField.split('\n').pop().length;
+
+                // 滚动到光标位置
+                editor.scrollIntoView(null, 100);
+
+                // 如果有值，尝试定位并选中值的部分
+                if (value) {
+                    // 获取字段行后面的内容
+                    const afterField = content.substring(fieldIndex + fieldMatch[0].length);
+
+                    // 匹配值部分（支持字符串、数字、布尔值等）
+                    // 格式如: "value", 123, true, false, null
+                    let valueMatch = afterField.match(/^\s*("(?:[^"\\]|\\.)*"|\d+|true|false|null)/i);
+
+                    if (valueMatch) {
+                        const matchedValue = valueMatch[1];
+
+                        // 计算值的起始位置
+                        const valueStartIndex = fieldIndex + fieldMatch[0].length + afterField.indexOf(matchedValue);
+
+                        // 获取值的位置
+                        const beforeValue = content.substring(0, valueStartIndex);
+                        const valueLine = beforeValue.split('\n').length;
+                        const valueCh = beforeValue.split('\n').pop().length;
+
+                        // 计算值的结束位置
+                        const valueEndIndex = valueStartIndex + matchedValue.length;
+
+                        // 获取值的结束位置
+                        const beforeValueEnd = content.substring(0, valueEndIndex);
+                        const valueEndLine = beforeValueEnd.split('\n').length;
+                        const valueEndCh = beforeValueEnd.split('\n').pop().length;
+
+                        // 选中值
+                        editor.setSelection(
+                            { line: valueLine - 1, ch: valueCh },
+                            { line: valueEndLine - 1, ch: valueEndCh }
+                        );
+                    } else {
+                        // 如果无法精确匹配值，就只跳转到字段名
+                        // 选中字段名（包括引号和冒号）
+                        editor.setSelection(
+                            { line: line - 1, ch: ch },
+                            { line: line - 1, ch: ch + fieldMatch[0].length }
+                        );
+                        showNotification(`已跳转到字段 "${fieldName}"`, 'success');
+                    }
+                } else {
+                    // 点击字段名时，选中字段名（包括引号和冒号）
+                    editor.setSelection(
+                        { line: line - 1, ch: ch },
+                        { line: line - 1, ch: ch + fieldMatch[0].length }
+                    );
+                }
+
+                editor.focus();
+            } else {
+                showNotification(`未找到字段 "${fieldName}"`, 'error');
+            }
+        }
+
+        // 恢复原值
+        function restoreOriginalValue(index) {
+            const change = modificationHistory[index];
+
+            // 解析当前 JSON
+            const currentJson = safeParseJson(editor.getValue());
+            if (!currentJson) {
+                showNotification('无法恢复值：JSON 解析失败', 'error');
+                return;
+            }
+
+            // 尝试恢复原值（支持字符串、数字、布尔值等）
+            let restoredValue;
+            try {
+                restoredValue = JSON.parse(change.oldValue);
+            } catch (e) {
+                restoredValue = change.oldValue;
+            }
+
+            // 恢复原值
+            currentJson[change.fieldName] = restoredValue;
+
+            // 更新编辑器内容
+            const newContent = JSON.stringify(currentJson, null, 2);
+
+            // 使用临时变量禁用 change 事件，避免重新触发修改检测
+            const oldChangeHandler = editor.getOption('onChange');
+            editor.off('change');
+            editor.setValue(newContent);
+            editor.on('change', oldChangeHandler);
+
+            // 更新原始内容，使其与当前内容一致
+            originalContent = newContent;
+
+            editor.focus();
+
+            // 跳转到字段位置
+            jumpToFieldInEditor(change.fieldName, change.oldValue);
+
+            // 从历史记录中删除
+            modificationHistory.splice(index, 1);
+            renderHistoryList();
+
+            // 重新计算修改计数
+            const modifiedCount = countModifiedFields();
+            changedCount.textContent = modifiedCount;
+            saveBtn.disabled = modifiedCount === 0;
+
+            showNotification(`已恢复 "${change.fieldName}" 的原值`, 'success');
+        }
+
+        // 清空历史记录
+        function clearModificationHistory() {
+            modificationHistory = [];
+            renderHistoryList();
+        }
+
+        // 计算修改字段数量
+        function countModifiedFields() {
+            const currentContent = editor.getValue();
+            const currentJson = safeParseJson(currentContent);
+            const originalJson = safeParseJson(originalContent);
+
+            if (!currentJson || !originalJson) return 0;
+
+            let count = 0;
+            for (const key in currentJson) {
+                if (originalJson.hasOwnProperty(key)) {
+                    if (originalJson[key] !== currentJson[key]) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 点击"已修改"区域展开/收起历史记录
+        changedCountItem.addEventListener('click', () => {
+            historyPanelVisible = !historyPanelVisible;
+            historyPanel.style.display = historyPanelVisible ? 'block' : 'none';
+
+            // 更新标签样式，显示是否可点击
+            changedCountItem.style.cursor = historyPanelVisible ? 'default' : 'pointer';
+        });
+
+        // 关闭按钮
+        closeHistoryBtn.addEventListener('click', () => {
+            historyPanelVisible = false;
+            historyPanel.style.display = 'none';
+            changedCountItem.style.cursor = 'pointer';
+        });
+
+        // 搜索功能
+        let searchMarkers = [];
+        let currentSearchMarker = null;  // 当前选中的搜索结果标记
+
+        // 点击搜索按钮触发搜索
+        searchBtn.addEventListener('click', performSearch);
+
+        // 支持回车键搜索
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        // 输入时更新搜索按钮状态
+        searchInput.addEventListener('input', () => {
+            const hasText = searchInput.value.trim().length > 0;
+            searchBtn.disabled = !hasText;
+
+            // 清空输入时重置按钮文字
+            if (!hasText) {
+                searchBtn.textContent = '搜索';
+            }
+        });
+
+        function performSearch() {
+            const query = searchInput.value.trim();
+
+            // 清除之前的搜索标记
+            clearSearchMarkers();
+
+            if (!query) {
+                searchBtn.textContent = '搜索';
+                searchResults = [];
+                searchPrev.disabled = true;
+                searchNext.disabled = true;
+                return;
+            }
+
+            searchResults = [];
+
+            // 搜索所有匹配项
+            const cursor = editor.getSearchCursor(query, null, {
+                caseFold: true,
+                multiline: true
+            });
+
+            while (cursor.findNext()) {
+                const from = cursor.from();
+                const to = cursor.to();
+                searchResults.push({ from, to });
+
+                // 添加搜索标记
+                const marker = editor.markText(from, to, {
+                    className: 'CodeMirror-searching'
+                });
+                searchMarkers.push(marker);
+            }
+
+            // 更新统计
+            searchBtn.textContent = `${searchResults.length} 个结果`;
+            searchPrev.disabled = searchResults.length === 0;
+            searchNext.disabled = searchResults.length === 0;
+
+            if (searchResults.length > 0) {
+                currentSearchIndex = -1;
+                jumpToNextResult();
+            }
+        }
+
+        function clearSearchMarkers() {
+            searchMarkers.forEach(marker => marker.clear());
+            searchMarkers = [];
+            if (currentSearchMarker) {
+                currentSearchMarker.clear();
+                currentSearchMarker = null;
+            }
+        }
+
+        searchNext.addEventListener('click', jumpToNextResult);
+        searchPrev.addEventListener('click', jumpToPrevResult);
+
+        function jumpToNextResult() {
+            if (searchResults.length === 0) return;
+
+            currentSearchIndex = (currentSearchIndex + 1) % searchResults.length;
+            jumpToResult(currentSearchIndex);
+        }
+
+        function jumpToPrevResult() {
+            if (searchResults.length === 0) return;
+
+            currentSearchIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+            jumpToResult(currentSearchIndex);
+        }
+
+        function jumpToResult(index) {
+            const result = searchResults[index];
+
+            // 清除之前的当前选中标记
+            if (currentSearchMarker) {
+                currentSearchMarker.clear();
+            }
+
+            // 创建新的当前选中标记（带有特殊高亮）
+            currentSearchMarker = editor.markText(result.from, result.to, {
+                className: 'CodeMirror-searching-current'
+            });
+
+            // 滚动到结果位置并选中
+            editor.scrollIntoView(result.from, 100);
+            editor.setSelection(result.from, result.to);
+            editor.focus();
+
+            searchBtn.textContent = `${searchResults.length} 个结果 (${index + 1}/${searchResults.length})`;
+        }
+
+        // 保存文件
+        saveBtn.addEventListener('click', async () => {
+            if (!currentVersion) {
+                showNotification('请先选择文件', 'error');
+                return;
+            }
+
+            const currentContent = editor.getValue();
+            const fileExt = originalFileName.split('.').pop().toLowerCase();
+
+            try {
+                // 验证JSON格式
+                JSON.parse(currentContent);
+
+                // 转换为Uint8Array
+                const encoder = new TextEncoder();
+                const fileData = encoder.encode(currentContent);
+
+                let blob, downloadName;
+
+                // 根据文件类型决定保存方式
+                if (fileExt === 'json') {
+                    // JSON 文件：根据原文件是否加密决定
+                    if (isEncryptedFile) {
+                        // 原文件是加密的，保存时也加密
+                        const preset = PRESETS[currentVersion];
+                        const encryptedData = encryptFile(fileData, preset.key, preset.iv, preset.prefix);
+                        blob = new Blob([encryptedData], { type: 'application/octet-stream' });
+                        downloadName = originalFileName.replace('.json', '_encrypted.json');
+                    } else {
+                        // 原文件是明文的，保存时保持明文
+                        blob = new Blob([currentContent], { type: 'application/json' });
+                        downloadName = originalFileName.replace('.json', '_new.json');
+                    }
+                } else {
+                    // .dat 文件：加密保存
+                    const preset = PRESETS[currentVersion];
+                    const encryptedData = encryptFile(fileData, preset.key, preset.iv, preset.prefix);
+                    blob = new Blob([encryptedData], { type: 'application/octet-stream' });
+                    downloadName = originalFileName.replace('.dat', '_new.dat');
+                }
+
+                // 下载
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = downloadName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                originalContent = currentContent;
+                changedCount.textContent = '0';
+                saveBtn.disabled = true;
+
+                const saveType = (fileExt === 'json' && isEncryptedFile) ? '加密' :
+                                 (fileExt === 'json' && !isEncryptedFile) ? '明文' : '加密';
+                showNotification(`文件保存成功（${saveType}格式）`, 'success');
+            } catch (error) {
+                console.error(error);
+                showNotification('保存失败: ' + error.message, 'error');
+            }
+        });
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 页面加载初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('=== FuncConfig 工具初始化 ===');
+            console.log('页面 URL:', window.location.href);
+            console.log('协议:', window.location.protocol);
+            
+            if (window.location.protocol === 'file:') {
+                console.warn('⚠️ 警告: 使用 file:// 协议打开，可能无法加载 JSON 文件');
+                console.warn('建议: 请使用本地服务器启动，例如：');
+                console.warn('  1. Python: python -m http.server 8000');
+                console.warn('  2. Node.js: npx serve');
+                console.warn('  3. VS Code: 安装 Live Server 扩展并右键 "Open with Live Server"');
+            }
+            
+            await loadFieldComments();
+            initEditor();
+            
+            console.log('=== 初始化完成 ===');
+            console.log('FIELD_COMMENTS 对象包含的键数量:', Object.keys(FIELD_COMMENTS).length);
+            
+            // 测试几个常用字段
+            const testFields = ['AIDL_ready', 'ARNaviFrame', 'AcctBind_AutoLogin', 'AGroupTip', 'ANIMATION', 'AutoScale'];
+            testFields.forEach(field => {
+                if (FIELD_COMMENTS[field]) {
+                    console.log(`测试字段 ${field}:`, FIELD_COMMENTS[field]);
+                } else {
+                    console.warn(`警告: 字段 ${field} 未找到注释`);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

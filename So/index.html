@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO文件修改工具</title>
+    <link rel="shortcut icon" href="https://tuapi.cccyn.cc/2023/02/27/63fc63411cdbf.jpg">
+    <link rel="stylesheet" href="css/tool-style.css">
+    <style>
+        /* 主页图标样式 */
+        .home-icon-link {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .home-icon-link:hover {
+            transform: translateY(-50%) scale(1.2);
+        }
+
+        .home-icon {
+            width: 40px;
+            height: 40px;
+            display: block;
+        }
+
+        /* 标题栏相对定位，为绝对定位的图标提供参考 */
+        .app-header {
+            position: relative;
+        }
+
+        .app-title {
+            margin-left: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <a href="../" class="home-icon-link" title="返回主页">
+                <svg class="home-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+                    <path d="M997.3 456.4l-419-428.5c-36.4-37.3-96.1-37.3-132.5 0l-419 428.5c-57 58.3-16.6 158 64 158h62.9v307.2c0 56.6 45.8 102.4 102.4 102.4h153.6V768c0-28.3 22.9-51.2 51.2-51.2h102.4c28.3 0 51.2 22.9 51.2 51.2v256H768c56.6 0 102.4-45.8 102.4-102.4V614.4h62.9c80.6 0 121-99.7 64-158z" fill="#00a2ff"></path>
+                </svg>
+            </a>
+            <h1 class="app-title">SO文件修改工具</h1>
+        </header>
+
+        <div class="step-indicator">
+            <div class="step active">1. 上传文件</div>
+            <div class="step">2. 替换图片</div>
+            <div class="step">3. 保存文件</div>
+        </div>
+
+        <div class="app-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span class="icon icon-file"></span> 文件操作</h2>
+                </div>
+                <div class="panel-body">
+                    <label for="fileInput" class="file-upload-area" id="fileUploadArea">
+                        <div class="icon icon-upload"></div>
+                        <h3>选择SO文件</h3>
+                        <p>点击或拖放.so文件到此处</p>
+                        <input type="file" id="fileInput" class="file-input" accept=".so,application/octet-stream">
+                        <div class="loading" id="fileLoading">
+                            <div class="loading-spinner"></div>
+                            正在处理文件...
+                        </div>
+                    </label>
+                    
+                    <div class="file-info" id="fileInfo">未选择文件</div>
+                    
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalImages">0</div>
+                            <div class="stat-label">图片总数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="replacedImages">0</div>
+                            <div class="stat-label">已替换</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="fileSize">0 KB</div>
+                            <div class="stat-label">文件大小</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span class="icon icon-image"></span> 图片管理</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="imageGrid" class="image-grid">
+                        <div class="empty-state">
+                            <div class="icon icon-image"></div>
+                            <h3>暂无图片</h3>
+                            <p>请先上传文件以查看图片</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top: 15px;">
+            <div class="panel-header">
+                <h2>操作日志</h2>
+            </div>
+            <div class="panel-body">
+                <div class="log-container" id="logContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部固定保存按钮 -->
+    <div class="fixed-save-button">
+        <button id="saveBtn" class="button button-success" disabled>
+            <span class="icon icon-save"></span>
+            保存修改后的文件
+        </button>
+    </div>
+
+    <!-- 通知区域 -->
+    <div id="notification" class="notification"></div>
+    
+    <!-- 隐藏的文件输入，用于图片替换 -->
+    <input type="file" id="hiddenReplacementInput" accept="image/png" style="display: none;">
+
+    <!-- 图片操作模态框 -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">图片操作</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="panel-body">
+                <div class="preview-container" id="modalPreview">
+                    <!-- 图片预览将在这里显示 -->
+                </div>
+                <div class="button-group">
+                    <button id="exportBtn" class="button">
+                        <span class="icon icon-image"></span>
+                        导出图片
+                    </button>
+                    <button id="replaceBtn" class="button button-success">
+                        <span class="icon icon-upload"></span>
+                        替换图片
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let soFileData = null;
+        let soImages = [];
+        let currentImageIndex = -1;
+        let isProcessing = false;
+        let originalFileSize = 0;
+        let originalFileName = '';
+
+        // DOM元素
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileLoading = document.getElementById('fileLoading');
+        const imageGrid = document.getElementById('imageGrid');
+        const saveBtn = document.getElementById('saveBtn');
+        const logContainer = document.getElementById('logContainer');
+        const notification = document.getElementById('notification');
+        const hiddenReplacementInput = document.getElementById('hiddenReplacementInput');
+        const imageModal = document.getElementById('imageModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalPreview = document.getElementById('modalPreview');
+        const exportBtn = document.getElementById('exportBtn');
+        const replaceBtn = document.getElementById('replaceBtn');
+        const closeModal = document.querySelector('.close');
+        
+        // 统计元素
+        const totalImagesEl = document.getElementById('totalImages');
+        const replacedImagesEl = document.getElementById('replacedImages');
+        const fileSizeEl = document.getElementById('fileSize');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('SO文件修改工具已初始化');
+            updateStats();
+            
+            // 设置文件上传区域拖放事件
+            fileUploadArea.addEventListener('dragover', (e) => {
+                if (isProcessing) return;
+                e.preventDefault();
+                fileUploadArea.style.background = 'rgba(52, 152, 219, 0.2)';
+            });
+            
+            fileUploadArea.addEventListener('dragleave', () => {
+                if (isProcessing) return;
+                fileUploadArea.style.background = 'rgba(52, 152, 219, 0.05)';
+            });
+            
+            fileUploadArea.addEventListener('drop', (e) => {
+                if (isProcessing) return;
+                e.preventDefault();
+                fileUploadArea.style.background = 'rgba(52, 152, 219, 0.05)';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileSelect(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // 文件输入变化事件
+            fileInput.addEventListener('change', (e) => {
+                if (isProcessing) return;
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            });
+            
+            // 模态框关闭事件
+            closeModal.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', (e) => {
+                if (e.target === imageModal) {
+                    imageModal.style.display = 'none';
+                }
+            });
+            
+            // 导出按钮事件
+            exportBtn.addEventListener('click', () => {
+                exportImage(currentImageIndex);
+                imageModal.style.display = 'none';
+            });
+            
+            // 替换按钮事件
+            replaceBtn.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+                hiddenReplacementInput.click();
+            });
+            
+            // 隐藏的替换输入事件
+            hiddenReplacementInput.addEventListener('change', function(e) {
+                if (this.files.length === 0) return;
+                handleImageReplace(this.files[0]);
+            });
+            
+            // 保存按钮事件
+            saveBtn.addEventListener('click', saveModifiedFile);
+        });
+
+        // 重置状态
+        function resetState(resetFileInput = true) {
+            soFileData = null;
+            soImages = [];
+            currentImageIndex = -1;
+            originalFileSize = 0;
+            originalFileName = '';
+            fileInfo.textContent = '未选择文件';
+            fileInfo.classList.remove('has-file');
+            updateImageGrid();
+            updateStats();
+            saveBtn.disabled = true;
+            
+            if (resetFileInput) {
+                fileInput.value = '';
+            }
+        }
+
+        // 处理文件选择
+        function handleFileSelect(file) {
+            if (isProcessing) return;
+            
+            // 验证文件类型
+            if (!file.name.toLowerCase().endsWith('.so')) {
+                showNotification('请选择.so格式的文件', 'error');
+                return;
+            }
+            
+            isProcessing = true;
+            fileLoading.style.display = 'block';
+            fileUploadArea.style.cursor = 'not-allowed';
+            fileUploadArea.style.opacity = '0.7';
+            
+            fileInfo.textContent = `正在处理: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+            fileInfo.classList.remove('has-file');
+            
+            originalFileSize = file.size;
+            originalFileName = file.name;
+            log(`已选择SO文件: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)} KB`);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                soFileData = e.target.result;
+                soImages = parseSOFile(soFileData);
+                finishFileProcessing(file);
+            };
+            
+            reader.onerror = function() {
+                log('文件读取失败');
+                showNotification('文件读取失败', 'error');
+                finishFileProcessing(file, false);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 完成文件处理
+        function finishFileProcessing(file, success = true) {
+            isProcessing = false;
+            fileLoading.style.display = 'none';
+            fileUploadArea.style.cursor = 'pointer';
+            fileUploadArea.style.opacity = '1';
+            
+            if (success) {
+                fileInfo.textContent = `已选择: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                fileInfo.classList.add('has-file');
+                
+                updateImageGrid();
+                updateStats();
+                
+                if (soImages.length > 0) {
+                    showNotification(`成功解析SO文件，找到 ${soImages.length} 张图片`, 'success');
+                    saveBtn.disabled = false;
+                } else {
+                    showNotification('未在SO文件中找到PNG图片', 'warning');
+                    saveBtn.disabled = true;
+                }
+            } else {
+                resetState();
+            }
+        }
+
+        // 日志函数
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.textContent += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(message);
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            totalImagesEl.textContent = soImages.length;
+            
+            const replacedCount = soImages.filter(img => img.replaced).length;
+            replacedImagesEl.textContent = replacedCount;
+            
+            if (soFileData) {
+                const sizeKB = (soFileData.byteLength / 1024).toFixed(2);
+                fileSizeEl.textContent = `${sizeKB} KB`;
+            } else {
+                fileSizeEl.textContent = '0 KB';
+            }
+            
+            // 更新步骤指示器
+            const steps = document.querySelectorAll('.step');
+            if (soImages.length > 0) {
+                steps[0].classList.add('completed');
+                steps[1].classList.add('active');
+            } else {
+                steps[0].classList.add('active');
+                steps[1].classList.remove('active');
+            }
+            
+            if (replacedCount > 0) {
+                steps[2].classList.add('active');
+            } else {
+                steps[2].classList.remove('active');
+            }
+        }
+
+        // 解析SO文件
+        function parseSOFile(arrayBuffer) {
+            const data = new Uint8Array(arrayBuffer);
+            const images = [];
+            
+            log(`开始解析SO文件，文件大小: ${data.length} 字节`);
+            
+            let position = 0;
+            while (position < data.length - 8) {
+                // PNG文件头: 89 50 4E 47 0D 0A 1A 0A
+                if (data[position] === 0x89 && 
+                    data[position+1] === 0x50 && 
+                    data[position+2] === 0x4E && 
+                    data[position+3] === 0x47 &&
+                    data[position+4] === 0x0D && 
+                    data[position+5] === 0x0A && 
+                    data[position+6] === 0x1A && 
+                    data[position+7] === 0x0A) {
+                    
+                    // 查找IEND块
+                    let iendPosition = position + 8;
+                    let foundIEND = false;
+                    
+                    while (iendPosition < data.length - 8) {
+                        if (data[iendPosition] === 0x49 && 
+                            data[iendPosition+1] === 0x45 && 
+                            data[iendPosition+2] === 0x4E && 
+                            data[iendPosition+3] === 0x44 &&
+                            data[iendPosition+4] === 0xAE && 
+                            data[iendPosition+5] === 0x42 && 
+                            data[iendPosition+6] === 0x60 && 
+                            data[iendPosition+7] === 0x82) {
+                            
+                            foundIEND = true;
+                            break;
+                        }
+                        iendPosition++;
+                    }
+                    
+                    if (foundIEND) {
+                        const pngEnd = iendPosition + 8;
+                        const pngData = data.slice(position, pngEnd);
+                        
+                        // 验证PNG数据
+                        if (pngData[0] === 0x89 && pngData[1] === 0x50 && pngData[2] === 0x4E && pngData[3] === 0x47) {
+                            const blob = new Blob([pngData], { type: 'image/png' });
+                            const url = URL.createObjectURL(blob);
+                            
+                            images.push({
+                                index: images.length + 1,
+                                startPos: position,
+                                endPos: pngEnd,
+                                originalData: pngData,
+                                replaced: false,
+                                url: url,
+                                width: 0,
+                                height: 0
+                            });
+                            
+                            log(`成功提取PNG图片 #${images.length}，大小: ${pngData.length} 字节`);
+                            
+                            // 获取图片尺寸
+                            getImageDimensions(url).then(dimensions => {
+                                const imgIndex = images.findIndex(img => img.url === url);
+                                if (imgIndex !== -1) {
+                                    images[imgIndex].width = dimensions.width;
+                                    images[imgIndex].height = dimensions.height;
+                                    updateImageGrid();
+                                }
+                            });
+                            
+                            position = pngEnd;
+                            continue;
+                        }
+                    }
+                }
+                position++;
+            }
+            
+            log(`SO文件解析完成，共找到 ${images.length} 张PNG图片`);
+            return images;
+        }
+
+        // 获取图片尺寸
+        function getImageDimensions(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    resolve({
+                        width: img.width,
+                        height: img.height
+                    });
+                };
+                img.onerror = function() {
+                    resolve({
+                        width: 0,
+                        height: 0
+                    });
+                };
+                img.src = url;
+            });
+        }
+
+        // 更新图片网格
+        function updateImageGrid() {
+            if (soImages.length === 0) {
+                imageGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon icon-image"></div>
+                        <h3>暂无图片</h3>
+                        <p>请先上传文件以查看图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            imageGrid.innerHTML = '';
+            
+            soImages.forEach((image, index) => {
+                const imageItem = document.createElement('div');
+                imageItem.className = `image-item ${image.replaced ? 'replaced' : ''}`;
+                imageItem.dataset.index = index;
+                
+                imageItem.innerHTML = `
+                    <div class="image-number">图片 #${image.index}</div>
+                    <div class="image-preview">
+                        <img src="${image.url}" alt="图片 #${image.index}">
+                    </div>
+                    <div class="image-info">
+                        ${image.width > 0 ? `${image.width}×${image.height}` : '尺寸未知'}
+                        <br>
+                        ${(image.originalData.length / 1024).toFixed(1)} KB
+                        <br>
+                        PNG
+                    </div>
+                `;
+                
+                imageItem.addEventListener('click', () => {
+                    currentImageIndex = index;
+                    showImageModal(image);
+                });
+                
+                imageGrid.appendChild(imageItem);
+            });
+        }
+
+        // 显示图片模态框
+        function showImageModal(image) {
+            modalTitle.textContent = `图片 #${image.index}`;
+            modalPreview.innerHTML = `
+                <div style="text-align: center;">
+                    <img src="${image.url}" alt="图片 #${image.index}" style="max-width: 100%; max-height: 200px; border-radius: 4px;">
+                    <p style="margin-top: 10px; font-size: 0.9rem;">
+                        尺寸: ${image.width > 0 ? `${image.width}×${image.height}` : '未知'}<br>
+                        大小: ${(image.originalData.length / 1024).toFixed(1)} KB<br>
+                        格式: PNG<br>
+                        状态: ${image.replaced ? '<span style="color: #27ae60;">已替换</span>' : '<span style="color: #95a5a6;">原始</span>'}
+                    </p>
+                </div>
+            `;
+            imageModal.style.display = 'block';
+        }
+
+        // 导出图片
+        function exportImage(index) {
+            const image = soImages[index];
+            const blob = new Blob([image.originalData], { type: 'image/png' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `image_${image.index}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            URL.revokeObjectURL(url);
+            
+            log(`已导出图片 #${image.index}`);
+            showNotification(`图片 #${image.index} 导出成功`, 'success');
+        }
+
+        // 处理图片替换
+        function handleImageReplace(file) {
+            if (currentImageIndex === -1) return;
+            
+            const originalImage = soImages[currentImageIndex];
+            
+            // 验证文件类型
+            if (file.type !== 'image/png') {
+                showNotification('请选择PNG格式的图片', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const newImageData = new Uint8Array(e.target.result);
+                
+                // 验证文件签名
+                if (newImageData[0] !== 0x89 || 
+                    newImageData[1] !== 0x50 || 
+                    newImageData[2] !== 0x4E || 
+                    newImageData[3] !== 0x47) {
+                    showNotification('选择的文件不是有效的PNG图片', 'error');
+                    return;
+                }
+                
+                // 检查新图片尺寸是否不大于原图片
+                const newBlob = new Blob([newImageData], { type: 'image/png' });
+                const newUrl = URL.createObjectURL(newBlob);
+                
+                getImageDimensions(newUrl).then(dimensions => {
+                    URL.revokeObjectURL(newUrl);
+                    
+                    if (originalImage.width > 0 && dimensions.width > originalImage.width) {
+                        showNotification(`新图片宽度(${dimensions.width}px)超过原图片宽度(${originalImage.width}px)`, 'error');
+                        return;
+                    }
+                    
+                    if (originalImage.height > 0 && dimensions.height > originalImage.height) {
+                        showNotification(`新图片高度(${dimensions.height}px)超过原图片高度(${originalImage.height}px)`, 'error');
+                        return;
+                    }
+                    
+                    // 替换图片数据
+                    soImages[currentImageIndex].originalData = newImageData;
+                    soImages[currentImageIndex].replaced = true;
+                    soImages[currentImageIndex].url = URL.createObjectURL(new Blob([newImageData], { type: 'image/png' }));
+                    soImages[currentImageIndex].width = dimensions.width;
+                    soImages[currentImageIndex].height = dimensions.height;
+                    
+                    updateImageGrid();
+                    updateStats();
+                    
+                    log(`已替换图片 #${originalImage.index}`);
+                    showNotification(`图片 #${originalImage.index} 替换成功`, 'success');
+                });
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 保存修改后的文件
+        function saveModifiedFile() {
+            if (!soFileData || soImages.length === 0) return;
+            
+            isProcessing = true;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<div class="loading-spinner"></div> 正在保存...';
+            
+            log('开始生成修改后的文件...');
+            
+            try {
+                // SO文件直接替换
+                const finalData = rebuildSOFile();
+                
+                // 创建下载链接
+                const blob = new Blob([finalData], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // 获取原始文件名并添加"new"后缀
+                if (originalFileName) {
+                    const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+                    const newFileName = `${fileNameWithoutExt}new.so`;
+                    a.download = newFileName;
+                } else {
+                    // 备用命名方案
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                    a.download = `modified_so_${timestamp}.so`;
+                }
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                URL.revokeObjectURL(url);
+                
+                const originalSizeKB = (originalFileSize / 1024).toFixed(2);
+                const newSizeKB = (finalData.length / 1024).toFixed(2);
+                
+                log(`修改后的SO文件保存成功，大小: ${newSizeKB} KB (原始: ${originalSizeKB} KB)`);
+                showNotification(`文件保存成功！新大小: ${newSizeKB} KB`, 'success');
+                
+            } catch (error) {
+                log(`保存文件时出错: ${error.message}`);
+                showNotification('保存文件时出错', 'error');
+            } finally {
+                isProcessing = false;
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<span class="icon icon-save"></span> 保存修改后的文件';
+            }
+        }
+
+        // 重建SO文件
+        function rebuildSOFile() {
+            const originalData = new Uint8Array(soFileData);
+            let newData = new Uint8Array(originalData);
+            
+            // 按从后往前的顺序替换图片，避免位置偏移问题
+            const sortedImages = [...soImages].sort((a, b) => b.startPos - a.startPos);
+            
+            for (const image of sortedImages) {
+                if (image.replaced) {
+                    const before = newData.slice(0, image.startPos);
+                    const after = newData.slice(image.endPos);
+                    
+                    const combined = new Uint8Array(before.length + image.originalData.length + after.length);
+                    combined.set(before);
+                    combined.set(image.originalData, before.length);
+                    combined.set(after, before.length + image.originalData.length);
+                    
+                    newData = combined;
+                    
+                    log(`已替换图片 #${image.index} 的数据`);
+                }
+            }
+            
+            return newData;
+        }
+    </script>
+</body>
+</html>

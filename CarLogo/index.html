@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>车标文件修改工具</title>
+    <link rel="shortcut icon" href="https://tuapi.cccyn.cc/2023/02/27/63fc63411cdbf.jpg">
+    <link rel="stylesheet" href="css/tool-style.css">
+    <style>
+        /* 主页图标样式 */
+        .home-icon-link {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .home-icon-link:hover {
+            transform: translateY(-50%) scale(1.2);
+        }
+
+        .home-icon {
+            width: 40px;
+            height: 40px;
+            display: block;
+        }
+
+        /* 标题栏相对定位，为绝对定位的图标提供参考 */
+        .app-header {
+            position: relative;
+        }
+
+        .app-title {
+            margin-left: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <a href="../" class="home-icon-link" title="返回主页">
+                <svg class="home-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+                    <path d="M997.3 456.4l-419-428.5c-36.4-37.3-96.1-37.3-132.5 0l-419 428.5c-57 58.3-16.6 158 64 158h62.9v307.2c0 56.6 45.8 102.4 102.4 102.4h153.6V768c0-28.3 22.9-51.2 51.2-51.2h102.4c28.3 0 51.2 22.9 51.2 51.2v256H768c56.6 0 102.4-45.8 102.4-102.4V614.4h62.9c80.6 0 121-99.7 64-158z" fill="#00a2ff"></path>
+                </svg>
+            </a>
+            <h1 class="app-title">车标文件修改工具</h1>
+            <p class="app-subtitle">车标回写大小不受限</p>
+        </header>
+
+        <div class="step-indicator">
+            <div class="step active">1. 上传文件</div>
+            <div class="step">2. 替换图片</div>
+            <div class="step">3. 保存文件</div>
+        </div>
+
+        <div class="app-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span class="icon icon-file"></span> 文件操作</h2>
+                </div>
+                <div class="panel-body">
+                    <label for="fileInput" class="file-upload-area" id="fileUploadArea">
+                        <div class="icon icon-upload"></div>
+                        <h3>选择DAT文件</h3>
+                        <p>点击或拖放.dat/.bin文件到此处</p>
+                        <input type="file" id="fileInput" class="file-input" accept=".dat,.bin,application/octet-stream">
+                        <div class="loading" id="fileLoading">
+                            <div class="loading-spinner"></div>
+                            正在处理文件...
+                        </div>
+                    </label>
+                    
+                    <div class="file-info" id="fileInfo">未选择文件</div>
+                    
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalImages">0</div>
+                            <div class="stat-label">图片总数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="replacedImages">0</div>
+                            <div class="stat-label">已替换</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="fileSize">0 KB</div>
+                            <div class="stat-label">文件大小</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 文件结构信息 -->
+                    <div class="file-structure-info" id="fileStructureInfo" style="display: none;">
+                        <h4>车标文件结构分析</h4>
+                        <div id="structureDetails"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span class="icon icon-image"></span> 图片管理</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="imageGrid" class="image-grid">
+                        <div class="empty-state">
+                            <div class="icon icon-image"></div>
+                            <h3>暂无图片</h3>
+                            <p>请先上传文件以查看图片</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top: 15px;">
+            <div class="panel-header">
+                <h2>操作日志</h2>
+            </div>
+            <div class="panel-body">
+                <div class="log-container" id="logContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部固定保存按钮 -->
+    <div class="fixed-save-button">
+        <button id="saveBtn" class="button button-success" disabled>
+            <span class="icon icon-save"></span>
+            保存修改后的文件
+        </button>
+    </div>
+
+    <!-- 通知区域 -->
+    <div id="notification" class="notification"></div>
+    
+    <!-- 隐藏的文件输入，用于图片替换 -->
+    <input type="file" id="hiddenReplacementInput" accept="image/png,image/jpeg" style="display: none;">
+
+    <!-- 图片操作模态框 -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">图片操作</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="panel-body">
+                <div class="preview-container" id="modalPreview">
+                    <!-- 图片预览将在这里显示 -->
+                </div>
+                <div class="button-group">
+                    <button id="exportBtn" class="button">
+                        <span class="icon icon-image"></span>
+                        导出图片
+                    </button>
+                    <button id="replaceBtn" class="button button-success">
+                        <span class="icon icon-upload"></span>
+                        替换图片
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入pako库用于GZIP压缩/解压 -->
+    <script src="js/pako.min.js"></script>
+    
+    <script>
+        // 全局变量
+        let datFileData = null;
+        let datImages = [];
+        let currentImageIndex = -1;
+        let isProcessing = false;
+        let originalFileSize = 0;
+        let originalFileName = '';
+        let datFileStructure = null;
+        let originalUncompressedData = null;
+
+        // DOM元素
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileLoading = document.getElementById('fileLoading');
+        const imageGrid = document.getElementById('imageGrid');
+        const saveBtn = document.getElementById('saveBtn');
+        const logContainer = document.getElementById('logContainer');
+        const notification = document.getElementById('notification');
+        const hiddenReplacementInput = document.getElementById('hiddenReplacementInput');
+        const imageModal = document.getElementById('imageModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalPreview = document.getElementById('modalPreview');
+        const exportBtn = document.getElementById('exportBtn');
+        const replaceBtn = document.getElementById('replaceBtn');
+        const closeModal = document.querySelector('.close');
+        const fileStructureInfo = document.getElementById('fileStructureInfo');
+        const structureDetails = document.getElementById('structureDetails');
+        
+        // 统计元素
+        const totalImagesEl = document.getElementById('totalImages');
+        const replacedImagesEl = document.getElementById('replacedImages');
+        const fileSizeEl = document.getElementById('fileSize');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('车标文件修改工具已初始化');
+            updateStats();
+            
+            // 设置文件上传区域拖放事件
+            fileUploadArea.addEventListener('dragover', (e) => {
+                if (isProcessing) return;
+                e.preventDefault();
+                fileUploadArea.style.background = 'rgba(52, 152, 219, 0.2)';
+            });
+            
+            fileUploadArea.addEventListener('dragleave', () => {
+                if (isProcessing) return;
+                fileUploadArea.style.background = 'rgba(52, 152, 219, 0.05)';
+            });
+            
+            fileUploadArea.addEventListener('drop', (e) => {
+                if (isProcessing) return;
+                e.preventDefault();
+                fileUploadArea.style.background = 'rgba(52, 152, 219, 0.05)';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileSelect(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // 文件输入变化事件
+            fileInput.addEventListener('change', (e) => {
+                if (isProcessing) return;
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            });
+            
+            // 模态框关闭事件
+            closeModal.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', (e) => {
+                if (e.target === imageModal) {
+                    imageModal.style.display = 'none';
+                }
+            });
+            
+            // 导出按钮事件
+            exportBtn.addEventListener('click', () => {
+                exportImage(currentImageIndex);
+                imageModal.style.display = 'none';
+            });
+            
+            // 替换按钮事件
+            replaceBtn.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+                hiddenReplacementInput.click();
+            });
+            
+            // 隐藏的替换输入事件
+            hiddenReplacementInput.addEventListener('change', function(e) {
+                if (this.files.length === 0) return;
+                handleImageReplace(this.files[0]);
+            });
+            
+            // 保存按钮事件
+            saveBtn.addEventListener('click', saveModifiedFile);
+        });
+
+        // 重置状态
+        function resetState(resetFileInput = true) {
+            datFileData = null;
+            datImages = [];
+            currentImageIndex = -1;
+            originalFileSize = 0;
+            originalFileName = '';
+            datFileStructure = null;
+            originalUncompressedData = null;
+            fileInfo.textContent = '未选择文件';
+            fileInfo.classList.remove('has-file');
+            updateImageGrid();
+            updateStats();
+            saveBtn.disabled = true;
+            structureDetails.innerHTML = '';
+            
+            if (resetFileInput) {
+                fileInput.value = '';
+            }
+        }
+
+        // 处理文件选择
+        function handleFileSelect(file) {
+            if (isProcessing) return;
+            
+            // 验证文件类型
+            if (!file.name.toLowerCase().endsWith('.dat') && !file.name.toLowerCase().endsWith('.bin')) {
+                showNotification('请选择.dat或.bin格式的文件', 'error');
+                return;
+            }
+            
+            isProcessing = true;
+            fileLoading.style.display = 'block';
+            fileUploadArea.style.cursor = 'not-allowed';
+            fileUploadArea.style.opacity = '0.7';
+            
+            fileInfo.textContent = `正在处理: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+            fileInfo.classList.remove('has-file');
+            
+            originalFileSize = file.size;
+            originalFileName = file.name;
+            log(`已选择DAT文件: ${file.name}, 大小: ${(file.size / 1024).toFixed(2)} KB`);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                datFileData = e.target.result;
+                
+                // 解析DAT文件
+                parseDATFile(datFileData).then(result => {
+                    datImages = result.images;
+                    datFileStructure = result.structure;
+                    originalUncompressedData = result.uncompressedData;
+                    finishFileProcessing(file);
+                }).catch(error => {
+                    log(`DAT文件解析失败: ${error.message}`);
+                    showNotification('DAT文件解析失败', 'error');
+                    finishFileProcessing(file, false);
+                });
+            };
+            
+            reader.onerror = function() {
+                log('文件读取失败');
+                showNotification('文件读取失败', 'error');
+                finishFileProcessing(file, false);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 完成文件处理
+        function finishFileProcessing(file, success = true) {
+            isProcessing = false;
+            fileLoading.style.display = 'none';
+            fileUploadArea.style.cursor = 'pointer';
+            fileUploadArea.style.opacity = '1';
+            
+            if (success) {
+                fileInfo.textContent = `已选择: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                fileInfo.classList.add('has-file');
+                
+                updateImageGrid();
+                updateStats();
+                
+                if (datImages.length > 0) {
+                    showNotification(`成功解析DAT文件，找到 ${datImages.length} 张图片`, 'success');
+                    saveBtn.disabled = false;
+                    
+                    // 显示文件结构信息
+                    if (datFileStructure) {
+                        displayFileStructure();
+                    }
+                } else {
+                    showNotification('未在DAT文件中找到图片', 'warning');
+                    saveBtn.disabled = true;
+                }
+            } else {
+                resetState();
+            }
+        }
+
+        // 显示文件结构信息
+        function displayFileStructure() {
+            let html = '';
+            
+            html += `<div class="structure-item">
+                <span class="structure-name">压缩格式:</span>
+                <span class="structure-value">${datFileStructure.isCompressed ? 'GZIP压缩' : '未压缩'}</span>
+            </div>`;
+            
+            if (datFileStructure.isCompressed) {
+                html += `<div class="structure-item">
+                    <span class="structure-name">解压后大小:</span>
+                    <span class="structure-value">${datFileStructure.uncompressedSize} 字节</span>
+                </div>`;
+            }
+            
+            html += `<div class="structure-item">
+                <span class="structure-name">文件结构:</span>
+                <span class="structure-value">${datFileStructure.fileTypeDesc}</span>
+            </div>`;
+            
+            html += `<div class="structure-item">
+                <span class="structure-name">图片数量:</span>
+                <span class="structure-value">${datFileStructure.imageCount} 张</span>
+            </div>`;
+            
+            if (datFileStructure.binHeaderSize > 0) {
+                html += `<div class="structure-item">
+                    <span class="structure-name">头部大小:</span>
+                    <span class="structure-value">${datFileStructure.binHeaderSize} 字节</span>
+                </div>`;
+            }
+            
+            if (datFileStructure.binTrailerSize > 0) {
+                html += `<div class="structure-item">
+                    <span class="structure-name">尾部大小:</span>
+                    <span class="structure-value">${datFileStructure.binTrailerSize} 字节</span>
+                </div>`;
+            }
+            
+            structureDetails.innerHTML = html;
+            fileStructureInfo.style.display = 'block';
+        }
+
+        // 日志函数
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.textContent += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(message);
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            totalImagesEl.textContent = datImages.length;
+            
+            const replacedCount = datImages.filter(img => img.replaced).length;
+            replacedImagesEl.textContent = replacedCount;
+            
+            if (datFileData) {
+                const sizeKB = (datFileData.byteLength / 1024).toFixed(2);
+                fileSizeEl.textContent = `${sizeKB} KB`;
+            } else {
+                fileSizeEl.textContent = '0 KB';
+            }
+            
+            // 更新步骤指示器
+            const steps = document.querySelectorAll('.step');
+            if (datImages.length > 0) {
+                steps[0].classList.add('completed');
+                steps[1].classList.add('active');
+            } else {
+                steps[0].classList.add('active');
+                steps[1].classList.remove('active');
+            }
+            
+            if (replacedCount > 0) {
+                steps[2].classList.add('active');
+            } else {
+                steps[2].classList.remove('active');
+            }
+        }
+
+        // 解析DAT文件 - 基于carlogo.py逻辑
+        function parseDATFile(arrayBuffer) {
+            return new Promise((resolve, reject) => {
+                const data = new Uint8Array(arrayBuffer);
+                const structure = {
+                    isCompressed: false,
+                    uncompressedSize: 0,
+                    fileTypeDesc: '未知',
+                    imageCount: 0,
+                    binHeaderSize: 0,
+                    binTrailerSize: 0
+                };
+                
+                log(`开始解析DAT文件，文件大小: ${data.length} 字节`);
+                
+                // 检查是否为GZIP压缩
+                if (data[0] === 0x1F && data[1] === 0x8B) {
+                    structure.isCompressed = true;
+                    log('检测到GZIP压缩格式，正在解压...');
+                    
+                    try {
+                        // 使用pako库进行GZIP解压
+                        if (typeof pako === 'undefined') {
+                            reject(new Error('pako库未加载，无法解压GZIP数据'));
+                            return;
+                        }
+                        
+                        const decompressed = pako.inflate(data);
+                        structure.uncompressedSize = decompressed.length;
+                        log(`GZIP解压成功，解压后大小: ${decompressed.length} 字节`);
+                        
+                        // 递归调用解析解压后的数据
+                        parseDATFile(decompressed.buffer).then(result => {
+                            structure.fileTypeDesc = result.structure.fileTypeDesc;
+                            structure.imageCount = result.structure.imageCount;
+                            structure.binHeaderSize = result.structure.binHeaderSize;
+                            structure.binTrailerSize = result.structure.binTrailerSize;
+                            resolve({
+                                images: result.images,
+                                structure: structure,
+                                uncompressedData: decompressed
+                            });
+                        }).catch(reject);
+                        return;
+                    } catch (error) {
+                        log(`GZIP解压失败: ${error.message}`);
+                        reject(error);
+                        return;
+                    }
+                }
+                
+                // 基于carlogo.py逻辑解析DAT文件
+                const images = parseDATFileStructure(data, structure);
+                
+                log(`DAT文件解析完成，共找到 ${images.length} 张图片`);
+                resolve({
+                    images: images,
+                    structure: structure,
+                    uncompressedData: data
+                });
+            });
+        }
+
+        // 基于carlogo.py逻辑解析DAT文件结构
+        function parseDATFileStructure(data, structure) {
+            const images = [];
+            
+            // 定义签名
+            const pngSignature = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+            const jpgSignatures = [
+                new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0]),
+                new Uint8Array([0xFF, 0xD8, 0xFF, 0xE1]),
+                new Uint8Array([0xFF, 0xD8, 0xFF, 0xDB])
+            ];
+            
+            // 查找第一个图片签名
+            let firstPngPos = -1;
+            let firstJpgPos = -1;
+            
+            // 查找PNG签名
+            for (let i = 0; i <= data.length - pngSignature.length; i++) {
+                let match = true;
+                for (let j = 0; j < pngSignature.length; j++) {
+                    if (data[i + j] !== pngSignature[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    firstPngPos = i;
+                    break;
+                }
+            }
+            
+            // 查找JPG签名
+            for (const jpgSig of jpgSignatures) {
+                for (let i = 0; i <= data.length - jpgSig.length; i++) {
+                    let match = true;
+                    for (let j = 0; j < jpgSig.length; j++) {
+                        if (data[i + j] !== jpgSig[j]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) {
+                        firstJpgPos = i;
+                        break;
+                    }
+                }
+                if (firstJpgPos !== -1) break;
+            }
+            
+            // 确定第一个图片的位置和类型
+            let firstSigPos = -1;
+            let firstType = "";
+            
+            if (firstPngPos !== -1 && (firstJpgPos === -1 || firstPngPos < firstJpgPos)) {
+                firstSigPos = firstPngPos;
+                firstType = "png";
+            } else if (firstJpgPos !== -1) {
+                firstSigPos = firstJpgPos;
+                firstType = "jpg";
+            } else {
+                log("未找到任何图片签名");
+                return images;
+            }
+            
+            // 提取bin头部（第一个图片大小数据之前的内容）
+            const firstSizePos = firstSigPos - 4;
+            if (firstSizePos < 0) {
+                log("第一个图片的大小数据不完整");
+                return images;
+            }
+            
+            // 提取第一个图片的大小
+            const firstSizeBytes = data.slice(firstSizePos, firstSigPos);
+            const firstImgSize = new DataView(firstSizeBytes.buffer).getUint32(0, true); // 小端模式
+            
+            // 验证第一个图片数据是否完整
+            const firstImgEnd = firstSigPos + firstImgSize;
+            if (firstImgEnd > data.length) {
+                log(`第一个${firstType.toUpperCase()}图片数据不完整`);
+                return images;
+            }
+            
+            // 提取第一个图片数据
+            const firstImgData = data.slice(firstSigPos, firstImgEnd);
+            const firstBlob = new Blob([firstImgData], { type: `image/${firstType}` });
+            const firstUrl = URL.createObjectURL(firstBlob);
+            
+            images.push({
+                index: 1,
+                startPos: firstSigPos,
+                endPos: firstImgEnd,
+                originalData: firstImgData,
+                replaced: false,
+                url: firstUrl,
+                width: 0,
+                height: 0,
+                type: firstType,
+                sizeBytes: firstSizeBytes
+            });
+            
+            structure.binHeaderSize = firstSizePos;
+            structure.imageCount = 1;
+            
+            log(`成功提取第1张${firstType.toUpperCase()}图片，大小: ${firstImgSize} 字节`);
+            
+            // 获取图片尺寸
+            getImageDimensions(firstUrl).then(dimensions => {
+                images[0].width = dimensions.width;
+                images[0].height = dimensions.height;
+                updateImageGrid();
+            });
+            
+            // 检查是否有第二个图片（仅PNG）
+            if (firstType === "png") {
+                // 从第一个图片结束位置开始查找第二个PNG签名
+                let secondPngPos = -1;
+                for (let i = firstImgEnd; i <= data.length - pngSignature.length; i++) {
+                    let match = true;
+                    for (let j = 0; j < pngSignature.length; j++) {
+                        if (data[i + j] !== pngSignature[j]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) {
+                        secondPngPos = i;
+                        break;
+                    }
+                }
+                
+                // 如果找到第二个PNG签名
+                if (secondPngPos !== -1) {
+                    // 检查第二个图片的大小数据
+                    const secondSizePos = secondPngPos - 4;
+                    if (secondSizePos < firstImgEnd) {
+                        log("第二个PNG图片的大小数据位置不正确");
+                    } else {
+                        // 提取第二个图片的大小
+                        const secondSizeBytes = data.slice(secondSizePos, secondPngPos);
+                        const secondImgSize = new DataView(secondSizeBytes.buffer).getUint32(0, true); // 小端模式
+                        
+                        // 验证第二个图片数据是否完整
+                        const secondImgEnd = secondPngPos + secondImgSize;
+                        if (secondImgEnd <= data.length) {
+                            // 提取第二个图片数据
+                            const secondImgData = data.slice(secondPngPos, secondImgEnd);
+                            const secondBlob = new Blob([secondImgData], { type: 'image/png' });
+                            const secondUrl = URL.createObjectURL(secondBlob);
+                            
+                            images.push({
+                                index: 2,
+                                startPos: secondPngPos,
+                                endPos: secondImgEnd,
+                                originalData: secondImgData,
+                                replaced: false,
+                                url: secondUrl,
+                                width: 0,
+                                height: 0,
+                                type: 'png',
+                                sizeBytes: secondSizeBytes
+                            });
+                            
+                            structure.imageCount = 2;
+                            structure.fileTypeDesc = "双图PNG";
+                            
+                            log(`成功提取第2张PNG图片，大小: ${secondImgSize} 字节`);
+                            
+                            // 获取图片尺寸
+                            getImageDimensions(secondUrl).then(dimensions => {
+                                images[1].width = dimensions.width;
+                                images[1].height = dimensions.height;
+                                updateImageGrid();
+                            });
+                            
+                            // 提取尾部数据
+                            structure.binTrailerSize = data.length - secondImgEnd;
+                        } else {
+                            log("第二个PNG图片数据不完整");
+                        }
+                    }
+                } else {
+                    // 单图PNG结构
+                    structure.binTrailerSize = data.length - firstImgEnd;
+                    structure.fileTypeDesc = "单图PNG";
+                }
+            } else {
+                // 单图JPG结构
+                structure.binTrailerSize = data.length - firstImgEnd;
+                structure.fileTypeDesc = "单图JPG";
+            }
+            
+            return images;
+        }
+
+        // 获取图片尺寸
+        function getImageDimensions(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    resolve({
+                        width: img.width,
+                        height: img.height
+                    });
+                };
+                img.onerror = function() {
+                    resolve({
+                        width: 0,
+                        height: 0
+                    });
+                };
+                img.src = url;
+            });
+        }
+
+        // 更新图片网格
+        function updateImageGrid() {
+            if (datImages.length === 0) {
+                imageGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon icon-image"></div>
+                        <h3>暂无图片</h3>
+                        <p>请先上传文件以查看图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            imageGrid.innerHTML = '';
+            
+            datImages.forEach((image, index) => {
+                const imageItem = document.createElement('div');
+                imageItem.className = `image-item ${image.replaced ? 'replaced' : ''}`;
+                imageItem.dataset.index = index;
+                
+                imageItem.innerHTML = `
+                    <div class="image-number">图片 #${image.index}</div>
+                    <div class="image-preview">
+                        <img src="${image.url}" alt="图片 #${image.index}">
+                    </div>
+                    <div class="image-info">
+                        ${image.width > 0 ? `${image.width}×${image.height}` : '尺寸未知'}
+                        <br>
+                        ${(image.originalData.length / 1024).toFixed(1)} KB
+                        <br>
+                        ${image.type ? image.type.toUpperCase() : 'PNG'}
+                    </div>
+                `;
+                
+                imageItem.addEventListener('click', () => {
+                    currentImageIndex = index;
+                    showImageModal(image);
+                });
+                
+                imageGrid.appendChild(imageItem);
+            });
+        }
+
+        // 显示图片模态框
+        function showImageModal(image) {
+            modalTitle.textContent = `图片 #${image.index}`;
+            modalPreview.innerHTML = `
+                <div style="text-align: center;">
+                    <img src="${image.url}" alt="图片 #${image.index}" style="max-width: 100%; max-height: 200px; border-radius: 4px;">
+                    <p style="margin-top: 10px; font-size: 0.9rem;">
+                        尺寸: ${image.width > 0 ? `${image.width}×${image.height}` : '未知'}<br>
+                        大小: ${(image.originalData.length / 1024).toFixed(1)} KB<br>
+                        格式: ${image.type ? image.type.toUpperCase() : 'PNG'}<br>
+                        状态: ${image.replaced ? '<span style="color: #27ae60;">已替换</span>' : '<span style="color: #95a5a6;">原始</span>'}
+                    </p>
+                </div>
+            `;
+            imageModal.style.display = 'block';
+        }
+
+        // 导出图片
+        function exportImage(index) {
+            const image = datImages[index];
+            const blob = new Blob([image.originalData], { type: `image/${image.type || 'png'}` });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `image_${image.index}.${image.type || 'png'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            URL.revokeObjectURL(url);
+            
+            log(`已导出图片 #${image.index}`);
+            showNotification(`图片 #${image.index} 导出成功`, 'success');
+        }
+
+        // 处理图片替换
+        function handleImageReplace(file) {
+            if (currentImageIndex === -1) return;
+            
+            const originalImage = datImages[currentImageIndex];
+            const expectedType = originalImage.type || 'png';
+            
+            // 验证文件类型
+            if (expectedType === 'png' && file.type !== 'image/png') {
+                showNotification('请选择PNG格式的图片', 'error');
+                return;
+            }
+            
+            if (expectedType === 'jpg' && file.type !== 'image/jpeg') {
+                showNotification('请选择JPG格式的图片', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const newImageData = new Uint8Array(e.target.result);
+                
+                // 验证文件签名
+                if (expectedType === 'png' && 
+                    (newImageData[0] !== 0x89 || 
+                     newImageData[1] !== 0x50 || 
+                     newImageData[2] !== 0x4E || 
+                     newImageData[3] !== 0x47)) {
+                    showNotification('选择的文件不是有效的PNG图片', 'error');
+                    return;
+                }
+                
+                if (expectedType === 'jpg' && newImageData[0] !== 0xFF && newImageData[1] !== 0xD8) {
+                    showNotification('选择的文件不是有效的JPG图片', 'error');
+                    return;
+                }
+                
+                // 不再检查图片尺寸限制，直接替换
+                const newBlob = new Blob([newImageData], { type: `image/${expectedType}` });
+                const newUrl = URL.createObjectURL(newBlob);
+                
+                getImageDimensions(newUrl).then(dimensions => {
+                    URL.revokeObjectURL(newUrl);
+                    
+                    // 替换图片数据
+                    datImages[currentImageIndex].originalData = newImageData;
+                    datImages[currentImageIndex].replaced = true;
+                    datImages[currentImageIndex].url = URL.createObjectURL(new Blob([newImageData], { type: `image/${expectedType}` }));
+                    datImages[currentImageIndex].width = dimensions.width;
+                    datImages[currentImageIndex].height = dimensions.height;
+                    
+                    updateImageGrid();
+                    updateStats();
+                    
+                    log(`已替换图片 #${originalImage.index}`);
+                    showNotification(`图片 #${originalImage.index} 替换成功`, 'success');
+                });
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 保存修改后的文件
+        function saveModifiedFile() {
+            if (!datFileData || datImages.length === 0) return;
+            
+            isProcessing = true;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<div class="loading-spinner"></div> 正在保存...';
+            
+            log('开始生成修改后的文件...');
+            
+            try {
+                // DAT文件需要重建二进制结构并重新压缩
+                const finalData = rebuildDATFileWithStructure();
+                
+                // 创建下载链接
+                const blob = new Blob([finalData], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // 获取原始文件名并添加"new"后缀
+                if (originalFileName) {
+                    const fileNameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+                    const fileExtension = originalFileName.substring(originalFileName.lastIndexOf('.') + 1);
+                    const newFileName = `${fileNameWithoutExt}new.${fileExtension}`;
+                    a.download = newFileName;
+                } else {
+                    // 备用命名方案
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                    a.download = `modified_dat_${timestamp}.dat`;
+                }
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                URL.revokeObjectURL(url);
+                
+                const originalSizeKB = (originalFileSize / 1024).toFixed(2);
+                const newSizeKB = (finalData.length / 1024).toFixed(2);
+                
+                log(`修改后的DAT文件保存成功，大小: ${newSizeKB} KB (原始: ${originalSizeKB} KB)`);
+                showNotification(`文件保存成功！新大小: ${newSizeKB} KB`, 'success');
+                
+            } catch (error) {
+                log(`保存文件时出错: ${error.message}`);
+                showNotification('保存文件时出错', 'error');
+            } finally {
+                isProcessing = false;
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<span class="icon icon-save"></span> 保存修改后的文件';
+            }
+        }
+
+        // 重建DAT文件
+        function rebuildDATFileWithStructure() {
+            // 重建未压缩的二进制结构
+            const uncompressedData = rebuildBinaryStructure();
+            
+            // 如果原始文件是压缩的，重新压缩
+            if (datFileStructure && datFileStructure.isCompressed) {
+                log('重新压缩DAT文件...');
+                
+                try {
+                    // 使用pako进行GZIP压缩
+                    const compressed = pako.gzip(uncompressedData);
+                    log(`GZIP压缩成功，压缩后大小: ${compressed.length} 字节`);
+                    return compressed;
+                    
+                } catch (error) {
+                    log(`GZIP压缩失败: ${error.message}, 使用未压缩数据`);
+                    return uncompressedData;
+                }
+            } else {
+                // 原始文件未压缩，直接返回
+                return uncompressedData;
+            }
+        }
+
+        // 重建二进制结构 - 基于carlogo.py逻辑
+        function rebuildBinaryStructure() {
+            if (!originalUncompressedData) {
+                throw new Error('原始未压缩数据不存在');
+            }
+            
+            const originalData = new Uint8Array(originalUncompressedData);
+            
+            // 创建新的二进制数据
+            const parts = [];
+            
+            // 添加头部
+            parts.push(originalData.slice(0, datFileStructure.binHeaderSize));
+            
+            // 添加图片数据（大小+图片内容）
+            for (let i = 0; i < datImages.length; i++) {
+                const image = datImages[i];
+                
+                // 添加图片大小（小端模式）
+                const littleEndianSize = new Uint8Array(4);
+                new DataView(littleEndianSize.buffer).setUint32(0, image.originalData.length, true);
+                
+                parts.push(littleEndianSize);
+                
+                // 添加图片数据
+                parts.push(image.originalData);
+                
+                log(`已添加图片 #${image.index} (大小: ${image.originalData.length} 字节)`);
+            }
+            
+            // 添加尾部
+            if (datFileStructure.binTrailerSize > 0) {
+                parts.push(originalData.slice(originalData.length - datFileStructure.binTrailerSize));
+            }
+            
+            // 合并所有部分
+            const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            
+            for (const part of parts) {
+                result.set(part, offset);
+                offset += part.length;
+            }
+            
+            log(`重建二进制结构完成，总大小: ${result.length} 字节`);
+            return result;
+        }
+    </script>
+</body>
+</html>
